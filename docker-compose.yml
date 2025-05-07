@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    command: uvicorn mcp.main:app --host 0.0.0.0 --port 8000
+    environment:
+      - PATTERN_DETECTOR_URL=http://pattern-detector:8001/detect
+      - SIGNAL_GENERATOR_URL=http://signal-generator:8002/generate
+      - SIGNAL_DISPATCHER_URL=http://signal-dispatcher:8003/dispatch
+    volumes:
+      - .:/app
+    depends_on:
+      - pattern-detector
+      - signal-generator
+      - signal-dispatcher
+
+  pattern-detector:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    command: uvicorn pattern_detector.main:app --host 0.0.0.0 --port 8001
+    volumes:
+      - .:/app
+
+  signal-generator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8002:8002"
+    command: uvicorn signal_generator.main:app --host 0.0.0.0 --port 8002
+    volumes:
+      - .:/app
+
+  signal-dispatcher:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8003:8003"
+    command: uvicorn signal_dispatcher.main:app --host 0.0.0.0 --port 8003
+    volumes:
+      - .:/app
+      - signal_logs:/app/signal_logs
+
+  poller:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python -m poller.main
+    environment:
+      - MCP_URL=http://mcp:8000/mcp/candle
+      - POLLING_INTERVAL=30
+    volumes:
+      - .:/app
+    depends_on:
+      - mcp
+
+volumes:
+  signal_logs: 
