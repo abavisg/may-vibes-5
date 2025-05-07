@@ -53,19 +53,48 @@ class TradingSignal(BaseModel):
 
 # Signal dispatching functions
 def log_signal_to_file(signal: Dict[str, Any]) -> str:
-    """Log the signal to a file"""
+    """Log the signal to a file as part of a valid JSON array"""
     # Create a filename based on date
     today = datetime.now().strftime("%Y-%m-%d")
     log_file = os.path.join(SIGNAL_LOG_DIR, f"signals_{today}.json")
     
     logger.info(f"Logging signal ID {signal['id']} to file: {log_file}")
     
-    # Format the signal as pretty JSON
-    signal_json = json.dumps(signal, indent=2)
+    # Check if file exists
+    if os.path.exists(log_file):
+        try:
+            # Read the existing file
+            with open(log_file, 'r') as f:
+                content = f.read().strip()
+                
+            if not content:
+                # File exists but is empty
+                signals = []
+            else:
+                try:
+                    # Try to parse existing content as JSON
+                    signals = json.loads(content)
+                    if not isinstance(signals, list):
+                        # Convert to list if not already
+                        logger.warning(f"Converting existing non-array content to array format")
+                        signals = [signals]
+                except json.JSONDecodeError:
+                    # If the existing file isn't valid JSON, start fresh
+                    logger.warning(f"Existing signals file wasn't valid JSON, starting fresh")
+                    signals = []
+        except Exception as e:
+            logger.error(f"Error reading existing signals file: {str(e)}", exc_info=True)
+            signals = []
+    else:
+        # File doesn't exist, start with empty array
+        signals = []
     
-    # Append to the log file
-    with open(log_file, "a") as f:
-        f.write(signal_json + "\n\n")
+    # Add the new signal
+    signals.append(signal)
+    
+    # Write the updated signals array to file
+    with open(log_file, 'w') as f:
+        json.dump(signals, f, indent=2)
     
     logger.info(f"Signal {signal['id']} ({signal['type']}) for {signal['symbol']} successfully logged to file")
     
@@ -155,6 +184,33 @@ ID: {signal["id"]}
     logger.info(f"Formatted human-readable signal for {symbol}: {signal_type} signal")
     return message
 
+def format_messaging_signal(signal: Dict[str, Any]) -> str:
+    """Format signal for messaging platform in the requested format"""
+    logger.info(f"Formatting signal ID {signal['id']} for messaging")
+    
+    signal_type = signal["type"]
+    
+    if signal_type == "none" or signal.get("status") == "no_signal":
+        logger.info("No actionable signal to format for messaging")
+        return "NO SIGNAL GENERATED"
+    
+    symbol = signal["symbol"]
+    entry_price = signal["entry_price"]
+    stop_loss = signal["stop_loss"]
+    take_profit = signal["take_profit"]
+    
+    # Simple format as requested
+    message = f"""SIGNAL ALERT: 
+{signal_type}
+Price: {entry_price}
+SL: {stop_loss}
+TP: {take_profit}"""
+    
+    # Log the message to the terminal
+    logger.info(f"MESSAGING SIGNAL: \n{message}")
+    
+    return message
+
 # Middleware to log all incoming requests
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
@@ -180,12 +236,16 @@ async def dispatch_signal(signal: TradingSignal):
         logger.info("STEP 1: Formatting signal for human-readable output")
         human_readable = format_signal_for_human(signal_dict)
         
+        # Format signal for messaging platform
+        logger.info("STEP 2: Formatting signal for messaging platform")
+        messaging_signal = format_messaging_signal(signal_dict)
+        
         # Log to file
-        logger.info("STEP 2: Logging signal to file")
+        logger.info("STEP 3: Logging signal to file")
         log_file = log_signal_to_file(signal_dict)
         
         # Send to webhook if configured
-        logger.info("STEP 3: Sending signal to webhook (if configured)")
+        logger.info("STEP 4: Sending signal to webhook (if configured)")
         webhook_result = await send_signal_to_webhook(signal_dict)
         
         logger.info(f"Signal {signal.id} dispatched successfully to all configured outputs")
@@ -195,7 +255,8 @@ async def dispatch_signal(signal: TradingSignal):
             "outputs": {
                 "log_file": log_file,
                 "webhook_result": webhook_result,
-                "human_readable": human_readable
+                "human_readable": human_readable,
+                "messaging_signal": messaging_signal
             }
         }
     except Exception as e:

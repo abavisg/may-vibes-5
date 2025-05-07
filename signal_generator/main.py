@@ -26,7 +26,7 @@ logger.info(f"USE_SIGNAL_STUBS set to: {USE_SIGNAL_STUBS}")
 
 # Import stubs if feature flag is enabled
 if USE_SIGNAL_STUBS:
-    from signal_generator.signal_stubs import BuySignalStub, SellSignalStub
+    from .signal_stubs import BuySignalStub, SellSignalStub
     logger.info("Using signal stubs for signal generation")
     # Initialize stubs with configurable frequencies
     buy_frequency = float(os.getenv("BUY_SIGNAL_FREQUENCY", "0.3"))
