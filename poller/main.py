@@ -24,9 +24,11 @@ load_dotenv()
 # Configuration
 MCP_URL = os.getenv("MCP_URL", "http://localhost:8000/mcp/candle")
 POLLING_INTERVAL = int(os.getenv("POLLING_INTERVAL", "30"))  # seconds
+TWELVE_DATA_API_KEY = os.getenv("TWELVE_DATA_API_KEY")
+USE_MOCK_DATA = TWELVE_DATA_API_KEY is None or os.getenv("FORCE_MOCK_DATA", "false").lower() == "true"  # Use mock data if API key is not provided or FORCE_MOCK_DATA is true
+USE_SIGNAL_STUBS = os.getenv("USE_SIGNAL_STUBS", "false").lower() == "true"  # Use stub signal generators
 
-# For simplicity, we'll use a mock candle generator in development
-# In production, this would be replaced with actual API calls to a data provider
+# For development and fallback, we'll keep the mock candle generator
 class MockCandleGenerator:
     """Mock candle generator for development purposes"""
     
@@ -62,29 +64,112 @@ class MockCandleGenerator:
             "volume": volume
         }
 
-# In a real implementation, you would use a proper API client
-# For example, integration with Twelve Data might look like:
-# def get_real_candle():
-#     API_KEY = os.getenv("TWELVE_DATA_API_KEY")
-#     url = f"https://api.twelvedata.com/time_series?symbol=XAUUSD&interval=1min&apikey={API_KEY}&format=JSON&dp=3"
-#     response = requests.get(url)
-#     data = response.json()
-#     return transform_twelve_data_response(data)
-
 def random():
     """Simple random function replacement"""
     return time.time() % 1
 
+def transform_twelve_data_response(data: Dict) -> Dict:
+    """
+    Transform Twelve Data API response into our candle format
+    
+    Example Twelve Data response:
+    {
+        "meta": {
+            "symbol": "XAUUSD",
+            "interval": "1min",
+            "currency": "USD",
+            "exchange_timezone": "UTC",
+            "exchange": "FOREX",
+            "type": "Physical Currency"
+        },
+        "values": [
+            {
+                "datetime": "2023-05-10 12:23:00",
+                "open": "2032.54004",
+                "high": "2032.84998",
+                "low": "2032.22998",
+                "close": "2032.31995",
+                "volume": "1234"
+            }
+        ],
+        "status": "ok"
+    }
+    """
+    try:
+        if data.get("status") != "ok" or not data.get("values"):
+            logger.error(f"Invalid Twelve Data response: {data}")
+            return None
+        
+        # Get the most recent candle data
+        candle_data = data["values"][0]
+        
+        # Create our candle format
+        candle = {
+            "symbol": data["meta"]["symbol"],
+            "timestamp": candle_data["datetime"],
+            "open": float(candle_data["open"]),
+            "high": float(candle_data["high"]),
+            "low": float(candle_data["low"]),
+            "close": float(candle_data["close"]),
+            "volume": int(candle_data["volume"]) if candle_data.get("volume") else 0
+        }
+        
+        return candle
+    except Exception as e:
+        logger.error(f"Error transforming Twelve Data response: {e}")
+        return None
+
+async def get_real_candle() -> Optional[Dict]:
+    """Fetch real candle data from Twelve Data API"""
+    if not TWELVE_DATA_API_KEY:
+        logger.warning("Twelve Data API key not provided, cannot fetch real candle data")
+        return None
+    
+    try:
+        url = f"https://api.twelvedata.com/time_series?symbol=XAU/USD&interval=1min&apikey={TWELVE_DATA_API_KEY}&format=JSON&dp=3"
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url)
+            response.raise_for_status()
+            data = response.json()
+            
+            logger.debug(f"Twelve Data API response: {json.dumps(data)}")
+            
+            candle = transform_twelve_data_response(data)
+            if candle:
+                logger.info(f"Successfully fetched real candle data: {json.dumps(candle)}")
+                return candle
+            else:
+                logger.error("Failed to transform Twelve Data response")
+                return None
+                
+    except Exception as e:
+        logger.error(f"Error fetching real candle data: {str(e)}")
+        return None
+
 async def poll_and_send():
     """Main polling function to fetch candles and send to MCP"""
-    candle_generator = MockCandleGenerator()
+    mock_generator = MockCandleGenerator() if USE_MOCK_DATA else None
     
     async with httpx.AsyncClient() as client:
         while True:
             try:
-                # Get candle data
-                candle = candle_generator.get_candle()
-                logger.info(f"Generated candle: {json.dumps(candle)}")
+                # Get candle data (real or mock)
+                candle = None
+                
+                if not USE_MOCK_DATA:
+                    candle = await get_real_candle()
+                
+                # Fall back to mock data if real data fetch failed
+                if candle is None:
+                    if USE_MOCK_DATA:
+                        logger.info("Using mock candle data")
+                    else:
+                        logger.warning("Failed to get real candle data, falling back to mock data")
+                    
+                    candle = mock_generator.get_candle()
+                
+                logger.info(f"Candle data: {json.dumps(candle)}")
                 
                 # Send to MCP server
                 response = await client.post(MCP_URL, json=candle)
@@ -106,6 +191,7 @@ async def main():
     logger.info("Starting XAUUSD Candle Poller Service")
     logger.info(f"MCP URL: {MCP_URL}")
     logger.info(f"Polling interval: {POLLING_INTERVAL} seconds")
+    logger.info(f"Using mock data: {USE_MOCK_DATA}")
     
     await poll_and_send()
 

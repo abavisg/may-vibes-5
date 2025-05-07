@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -16,6 +16,9 @@ logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
+
+# Feature flags
+USE_SIGNAL_STUBS = os.getenv("USE_SIGNAL_STUBS", "false").lower() == "true"
 
 # Create FastAPI application
 app = FastAPI(
@@ -33,6 +36,10 @@ class Candle(BaseModel):
     low: float
     close: float
     volume: int
+
+class PatternResponse(BaseModel):
+    patterns: List[Dict[str, Any]]
+    candle: Candle
 
 # Pattern detection functions
 def detect_pattern(candle: Dict[str, Any]) -> Dict[str, Any]:
@@ -93,7 +100,7 @@ def detect_pattern(candle: Dict[str, Any]) -> Dict[str, Any]:
 
 # Define API endpoints
 @app.post("/detect")
-async def detect_candle_pattern(candle: Candle):
+async def detect_candle_pattern(candle: Candle) -> PatternResponse:
     """
     Analyze a candle for patterns and return the detection results
     """
@@ -106,7 +113,11 @@ async def detect_candle_pattern(candle: Candle):
         # Detect pattern
         pattern_result = detect_pattern(candle_dict)
         
-        return pattern_result
+        # Return in the format expected by the signal generator
+        return PatternResponse(
+            patterns=[pattern_result],
+            candle=candle
+        )
     except Exception as e:
         logger.error(f"Error analyzing candle: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error analyzing candle: {str(e)}")

@@ -2,7 +2,7 @@ import logging
 import os
 import uuid
 from datetime import datetime
-from typing import Dict, Any
+from typing import Dict, Any, List, Optional
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -18,6 +18,17 @@ logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
+
+# Feature flags
+USE_SIGNAL_STUBS = os.getenv("USE_SIGNAL_STUBS", "false").lower() == "true"
+
+# Import stubs if feature flag is enabled
+if USE_SIGNAL_STUBS:
+    from signal_generator.signal_stubs import BuySignalStub, SellSignalStub
+    logger.info("Using signal stubs for signal generation")
+    # Initialize stubs with configurable frequencies
+    buy_stub = BuySignalStub(frequency=float(os.getenv("BUY_SIGNAL_FREQUENCY", "0.3")))
+    sell_stub = SellSignalStub(frequency=float(os.getenv("SELL_SIGNAL_FREQUENCY", "0.3")))
 
 # Create FastAPI application
 app = FastAPI(
@@ -114,21 +125,48 @@ def generate_signal(pattern_data: Dict[str, Any], candle_data: Dict[str, Any]) -
 
 # Define API endpoints
 @app.post("/generate")
-async def generate_trading_signal(request: GenerateSignalRequest):
-    """
-    Generate a trading signal based on a detected pattern and candle data
-    """
-    logger.info(f"Generating signal from pattern: {request.pattern} and candle: {request.candle}")
-    
+async def generate_signal(pattern: PatternDetection) -> Dict[str, Any]:
     try:
-        # Convert Pydantic models to dict
-        pattern_dict = request.pattern.dict()
-        candle_dict = request.candle.dict()
+        logger.info(f"Received pattern detection: {pattern.dict()}")
         
-        # Generate signal
-        signal = generate_signal(pattern_dict, candle_dict)
+        # Extract candle data
+        candle = pattern.candle.dict()
         
-        return signal
+        # Check if we're using signal stubs
+        if USE_SIGNAL_STUBS:
+            # Try to generate signals using stubs
+            signals = []
+            buy_signal = buy_stub.analyze(candle)
+            if buy_signal:
+                signals.append(buy_signal)
+                
+            sell_signal = sell_stub.analyze(candle)
+            if sell_signal:
+                signals.append(sell_signal)
+                
+            if signals:
+                # Return the first signal (could be either BUY or SELL)
+                logger.info(f"Generated stub signal: {signals[0]}")
+                return signals[0]
+            else:
+                # No signal generated
+                logger.info("No stub signals generated for this candle")
+                return {"status": "no_signal", "message": "No trading signals generated for this pattern"}
+        
+        # If not using stubs, use the actual signal generation logic
+        patterns = pattern.patterns
+        
+        # Default implementation: no real signal generation logic yet
+        # For demonstration, just log the pattern and return a dummy response
+        logger.info(f"Detected {len(patterns)} patterns")
+        
+        # In a real system, we would analyze the patterns and generate signals
+        # For now, just return a placeholder response
+        return {
+            "status": "no_signal",
+            "message": "No trading signals generated for this pattern"
+        }
+            
     except Exception as e:
         logger.error(f"Error generating signal: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error generating signal: {str(e)}")

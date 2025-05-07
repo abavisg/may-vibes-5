@@ -58,6 +58,7 @@ services:
     environment:
       - MCP_URL=http://mcp:8000/mcp/candle
       - POLLING_INTERVAL=30
+      - TWELVE_DATA_API_KEY=${TWELVE_DATA_API_KEY:-}
     volumes:
       - .:/app
     depends_on:
