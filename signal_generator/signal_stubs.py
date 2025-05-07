@@ -48,7 +48,7 @@ class BuySignalStub:
             return {
                 "id": str(uuid.uuid4()),
                 "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "symbol": candle["symbol"],
+                "symbol": "XAUUSD-Dummy", #candle["symbol"],
                 "candle_timestamp": candle["timestamp"],
                 "type": "BUY",
                 "entry_price": entry_price,

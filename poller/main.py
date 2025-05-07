@@ -26,8 +26,7 @@ load_dotenv()
 MCP_URL = os.getenv("MCP_URL", "http://localhost:8000/mcp/candle")
 POLLING_INTERVAL = int(os.getenv("POLLING_INTERVAL", "5"))  # seconds
 TWELVE_DATA_API_KEY = os.getenv("TWELVE_DATA_API_KEY")
-USE_MOCK_DATA = TWELVE_DATA_API_KEY is None
-USE_SIGNAL_STUBS = os.getenv("USE_SIGNAL_STUBS")
+USE_SIGNAL_STUBS = os.getenv("USE_SIGNAL_STUBS", "false").lower() == "true"
 
 from poller.candle_generator import generate_candle
 
@@ -60,8 +59,6 @@ def transform_twelve_data_response(data: Dict) -> Dict:
         return None
 
 async def get_real_candle() -> Optional[Dict]:
-    if not TWELVE_DATA_API_KEY:
-        return None
     try:
         url = f"https://api.twelvedata.com/time_series?symbol=XAU/USD&interval=1min&apikey={TWELVE_DATA_API_KEY}&format=JSON&dp=3"
         async with httpx.AsyncClient() as client:
@@ -85,10 +82,11 @@ async def poll_and_send():
                 poll_count += 1
                 # Get candle data (real or mock)
                 candle = None
-                if not USE_MOCK_DATA:
-                    candle = await get_real_candle()
-                if candle is None:
+                if USE_SIGNAL_STUBS:
                     candle = generate_candle()
+                else:
+                    candle = await get_real_candle()
+                
                 last_candle = candle
                 logger.info(f"[POLL] Input: {candle}")
                 response = await client.post(MCP_URL, json=candle)
@@ -130,7 +128,7 @@ async def health_check():
         "last_candle_time": last_candle["timestamp"] if last_candle else None,
         "config": {
             "polling_interval": POLLING_INTERVAL,
-            "using_mock_data": USE_MOCK_DATA
+            "using_mock_data": USE_SIGNAL_STUBS
         }
     }
 
@@ -144,11 +142,13 @@ async def get_last_candle():
 @app.post("/trigger-poll")
 async def trigger_poll():
     try:
-        candle = None
-        if not USE_MOCK_DATA:
-            candle = await get_real_candle()
-        if candle is None:
-            candle = generate_candle()
+        # if USE_SIGNAL_STUBS:
+        #     candle = generate_candle()
+        # else:
+        #     candle = await get_real_candle()
+
+        candle = await get_real_candle()
+
         logger.info(f"[TRIGGER] Input: {candle}")
         async with httpx.AsyncClient() as client:
             response = await client.post(MCP_URL, json=candle)

@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 class ExternalCandleGenerator:
     """External candle generator implementation"""
     
-    def __init__(self, symbol="XAUUSD", base_price=2000.0, volatility=0.001):
+    def __init__(self, symbol="XAUUSD", base_price=8000.0, volatility=0.001):
         """
         Initialize the candle generator.
         
