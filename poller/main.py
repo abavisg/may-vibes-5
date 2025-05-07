@@ -63,7 +63,9 @@ async def fetch_candle(symbol: str = "XAU/USD") -> Optional[Dict]:
                 return candle
         except Exception as e:
             logger.warning(f"{DATA_PROVIDER} provider failed: {e}")
-    # Fallback: try other providers
+    
+    # Fallback logic is disabled for now
+    # Uncomment this section to enable fallback to other providers
     # for name, prov in PROVIDERS.items():
     #     if name == DATA_PROVIDER:
     #         continue
@@ -75,32 +77,40 @@ async def fetch_candle(symbol: str = "XAU/USD") -> Optional[Dict]:
     #             return candle
     #     except Exception as e:
     #         logger.warning(f"Fallback provider {name} failed: {e}")
+    
     return None
+
+async def fetch_and_process_candle():
+    """Helper function to fetch candle data and send it to MCP"""
+    try:
+        candle = None
+        if not USE_SIGNAL_STUBS:
+            candle = await fetch_candle()
+        if candle is None:
+            candle = generate_candle()
+        
+        logger.info(f"[PROCESS] Input: {candle}")
+        async with httpx.AsyncClient() as client:
+            response = await client.post(MCP_URL, json=candle)
+            logger.info(f"[PROCESS] Output: {response.text}")
+            return candle, response
+    except Exception as e:
+        logger.error(f"Error in fetch_and_process_candle: {str(e)}")
+        raise
 
 async def poll_and_send():
     logging.info("Starting poller background task")
     global poller_running, last_candle
     poll_count = 0
-    async with httpx.AsyncClient() as client:
-        while poller_running:
-            try:
-                poll_count += 1
-
-                logging.info(f"Fetching candle from {DATA_PROVIDER} provider")
-                candle = await fetch_candle()
-                # Get candle data (real or mock)
-                #candle = None
-                # if USE_SIGNAL_STUBS:
-                #     candle = generate_candle()
-                # else:
-                #     candle = await fetch_candle()
-                last_candle = candle
-                logger.info(f"[POLL] Input: {candle}")
-                response = await client.post(MCP_URL, json=candle)
-                logger.info(f"[POLL] Output: {response.text}")
-                await asyncio.sleep(POLLING_INTERVAL)
-            except Exception as e:
-                await asyncio.sleep(5)
+    while poller_running:
+        try:
+            poll_count += 1
+            candle, _ = await fetch_and_process_candle()
+            last_candle = candle
+            await asyncio.sleep(POLLING_INTERVAL)
+        except Exception as e:
+            logger.error(f"Error in poll_and_send: {str(e)}")
+            await asyncio.sleep(5)
 
 async def start_poller_background():
     logging.info("Starting poller background task")
@@ -150,29 +160,22 @@ async def get_last_candle():
 @app.post("/trigger-poll")
 async def trigger_poll():
     try:
-        candle = None
-        if not USE_SIGNAL_STUBS:
-            candle = await fetch_candle()
-        if candle is None:
-            candle = generate_candle()
-        logger.info(f"[TRIGGER] Input: {candle}")
-        async with httpx.AsyncClient() as client:
-            response = await client.post(MCP_URL, json=candle)
-            logger.info(f"[TRIGGER] Output: {response.text}")
-            if response.status_code == 200:
-                result = response.json()
-                return {
-                    "status": "success",
-                    "message": "Manual poll successful",
-                    "candle": candle,
-                    "mcp_response": result
-                }
-            else:
-                return {
-                    "status": "error",
-                    "message": f"MCP returned status {response.status_code}",
-                    "candle": candle
-                }
+        candle, response = await fetch_and_process_candle()
+        
+        if response.status_code == 200:
+            result = response.json()
+            return {
+                "status": "success",
+                "message": "Manual poll successful",
+                "candle": candle,
+                "mcp_response": result
+            }
+        else:
+            return {
+                "status": "error",
+                "message": f"MCP returned status {response.status_code}",
+                "candle": candle
+            }
     except Exception as e:
         return {
             "status": "error",
