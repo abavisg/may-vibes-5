@@ -56,16 +56,12 @@ async def call_pattern_detector(candle: Dict[str, Any]) -> Dict[str, Any]:
             logger.error(f"Error calling pattern detector: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Error calling pattern detector: {str(e)}")
 
-async def call_signal_generator(pattern_data: Dict[str, Any], candle: Dict[str, Any]) -> Dict[str, Any]:
-    """Call the signal generator service with pattern and candle data"""
-    payload = {
-        "pattern": pattern_data,
-        "candle": candle
-    }
-    
+async def call_signal_generator(pattern_detection: Dict[str, Any]) -> Dict[str, Any]:
+    """Call the signal generator service with pattern detection data"""
     async with httpx.AsyncClient() as client:
         try:
-            response = await client.post(SIGNAL_GENERATOR_URL, json=payload)
+            # The pattern detection already contains the candle data, so we can send it directly
+            response = await client.post(SIGNAL_GENERATOR_URL, json=pattern_detection)
             response.raise_for_status()
             return response.json()
         except httpx.HTTPStatusError as e:
@@ -102,32 +98,43 @@ async def receive_candle(candle: Candle):
         candle_dict = candle.dict()
         
         # Step 1: Call pattern detector
-        pattern_result = await call_pattern_detector(candle_dict)
-        logger.info(f"Pattern detector result: {pattern_result}")
+        pattern_detection = await call_pattern_detector(candle_dict)
+        logger.info(f"Pattern detector result: {json.dumps(pattern_detection)}")
         
-        # Step 2: If a pattern is detected (not neutral), proceed to signal generation
-        pattern_type = pattern_result.get("pattern", "neutral")
-        if pattern_type != "neutral":
-            # Step 3: Generate signal based on pattern
-            signal = await call_signal_generator(pattern_result, candle_dict)
-            logger.info(f"Generated signal: {signal}")
+        # Get patterns from the response
+        patterns = pattern_detection.get("patterns", [])
+        
+        # Step 2: If any patterns were detected, proceed to signal generation
+        if patterns and len(patterns) > 0:
+            # Step 3: Generate signal based on patterns
+            signal = await call_signal_generator(pattern_detection)
+            
+            # Skip signal processing if "no_signal" status is returned
+            if isinstance(signal, dict) and signal.get("status") == "no_signal":
+                return {
+                    "status": "success",
+                    "message": "Pattern detected but no signal generated",
+                    "pattern_detection": pattern_detection
+                }
+            
+            logger.info(f"Generated signal: {json.dumps(signal)}")
             
             # Step 4: Dispatch the signal
             dispatch_result = await call_signal_dispatcher(signal)
-            logger.info(f"Signal dispatch result: {dispatch_result}")
+            logger.info(f"Signal dispatch result: {json.dumps(dispatch_result)}")
             
             return {
                 "status": "success",
                 "message": "Signal processed and dispatched",
-                "pattern": pattern_result,
+                "pattern_detection": pattern_detection,
                 "signal": signal,
                 "dispatch_result": dispatch_result
             }
         else:
             return {
                 "status": "success",
-                "message": "No pattern detected, no signal generated",
-                "pattern": pattern_result
+                "message": "No patterns detected, no signal generated",
+                "pattern_detection": pattern_detection
             }
             
     except Exception as e:

@@ -3,11 +3,10 @@ import datetime
 import json
 import logging
 import os
-import time
-from typing import Dict, List, Optional
+import random
+from typing import Dict, Optional
 
 import httpx
-import requests
 from dotenv import load_dotenv
 
 # Configure logging
@@ -28,45 +27,8 @@ TWELVE_DATA_API_KEY = os.getenv("TWELVE_DATA_API_KEY")
 USE_MOCK_DATA = TWELVE_DATA_API_KEY is None or os.getenv("FORCE_MOCK_DATA", "false").lower() == "true"  # Use mock data if API key is not provided or FORCE_MOCK_DATA is true
 USE_SIGNAL_STUBS = os.getenv("USE_SIGNAL_STUBS", "false").lower() == "true"  # Use stub signal generators
 
-# For development and fallback, we'll keep the mock candle generator
-class MockCandleGenerator:
-    """Mock candle generator for development purposes"""
-    
-    def __init__(self):
-        self.last_price = 2000.0  # Starting price for XAUUSD in USD
-        self.volatility = 0.001   # 0.1% volatility
-    
-    def get_candle(self) -> Dict:
-        """Generate a mock XAUUSD 1-minute candle"""
-        # Calculate price movement (random walk with drift)
-        price_change = self.last_price * self.volatility * (2 * (0.5 - random()) + 0.0001)
-        
-        # Generate OHLC data
-        open_price = self.last_price
-        close_price = open_price + price_change
-        high_price = max(open_price, close_price) + abs(price_change) * 0.5 * random()
-        low_price = min(open_price, close_price) - abs(price_change) * 0.5 * random()
-        
-        # Update last price for next candle
-        self.last_price = close_price
-        
-        # Create candle
-        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        volume = 100 + int(random() * 900)  # Random volume between 100 and 1000
-        
-        return {
-            "symbol": "XAUUSD",
-            "timestamp": timestamp,
-            "open": round(open_price, 2),
-            "high": round(high_price, 2),
-            "low": round(low_price, 2),
-            "close": round(close_price, 2),
-            "volume": volume
-        }
-
-def random():
-    """Simple random function replacement"""
-    return time.time() % 1
+# Import external candle generator
+from poller.candle_generator import generate_candle
 
 def transform_twelve_data_response(data: Dict) -> Dict:
     """
@@ -75,7 +37,7 @@ def transform_twelve_data_response(data: Dict) -> Dict:
     Example Twelve Data response:
     {
         "meta": {
-            "symbol": "XAUUSD",
+            "symbol": "XAU/USD",
             "interval": "1min",
             "currency": "USD",
             "exchange_timezone": "UTC",
@@ -149,8 +111,6 @@ async def get_real_candle() -> Optional[Dict]:
 
 async def poll_and_send():
     """Main polling function to fetch candles and send to MCP"""
-    mock_generator = MockCandleGenerator() if USE_MOCK_DATA else None
-    
     async with httpx.AsyncClient() as client:
         while True:
             try:
@@ -160,14 +120,15 @@ async def poll_and_send():
                 if not USE_MOCK_DATA:
                     candle = await get_real_candle()
                 
-                # Fall back to mock data if real data fetch failed
+                # Fall back to external candle generator if real data fetch failed
                 if candle is None:
                     if USE_MOCK_DATA:
-                        logger.info("Using mock candle data")
+                        logger.info("Using external candle generator")
                     else:
-                        logger.warning("Failed to get real candle data, falling back to mock data")
+                        logger.warning("Failed to get real candle data, falling back to external candle generator")
                     
-                    candle = mock_generator.get_candle()
+                    # Use the external candle generator
+                    candle = generate_candle()
                 
                 logger.info(f"Candle data: {json.dumps(candle)}")
                 
@@ -191,7 +152,8 @@ async def main():
     logger.info("Starting XAUUSD Candle Poller Service")
     logger.info(f"MCP URL: {MCP_URL}")
     logger.info(f"Polling interval: {POLLING_INTERVAL} seconds")
-    logger.info(f"Using mock data: {USE_MOCK_DATA}")
+    logger.info(f"Using external candle generator: {USE_MOCK_DATA}")
+    logger.info(f"Using signal stubs: {USE_SIGNAL_STUBS}")
     
     await poll_and_send()
 

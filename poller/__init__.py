@@ -1,1 +1,3 @@
-# Poller module 
+"""
+Poller service package for fetching financial candle data.
+""" 

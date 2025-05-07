@@ -84,15 +84,25 @@ def format_signal_for_human(signal: Dict[str, Any]) -> str:
     """Format the signal for human-readable output"""
     signal_type = signal["type"]
     
-    if signal_type == "none":
+    if signal_type == "none" or signal.get("status") == "no_signal":
         return "NO SIGNAL GENERATED"
     
     symbol = signal["symbol"]
     entry_price = signal["entry_price"]
     stop_loss = signal["stop_loss"]
     take_profit = signal["take_profit"]
-    pattern_type = signal["pattern"]["type"]
-    pattern_strength = signal["pattern"]["strength"]
+    
+    # Extract pattern information (handle both real patterns and stubs)
+    pattern = signal["pattern"]
+    pattern_type = pattern["type"]
+    
+    # Check if it's a stub pattern (has confidence instead of strength)
+    if "confidence" in pattern:
+        pattern_strength = int(pattern["confidence"] * 100)
+        pattern_description = pattern.get("description", "")
+    else:
+        pattern_strength = pattern.get("strength", 0)
+        pattern_description = ""
     
     # Calculate potential profit/loss
     if signal_type == "BUY":
@@ -110,6 +120,7 @@ def format_signal_for_human(signal: Dict[str, Any]) -> str:
 Symbol: {symbol}
 Action: {signal_type}
 Pattern: {pattern_type.upper()} (Strength: {pattern_strength}%)
+{pattern_description}
 Entry: {entry_price}
 Stop Loss: {stop_loss}
 Take Profit: {take_profit}

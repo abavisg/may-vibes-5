@@ -110,7 +110,17 @@ async def detect_candle_pattern(candle: Candle) -> PatternResponse:
         # Convert Pydantic model to dict
         candle_dict = candle.dict()
         
-        # Detect pattern
+        # Check if we're using signal stubs
+        if USE_SIGNAL_STUBS:
+            logger.info("Using signal stubs, returning empty pattern list")
+            # When using signal stubs, we don't need to detect patterns
+            # Just return an empty pattern list
+            return PatternResponse(
+                patterns=[],
+                candle=candle
+            )
+        
+        # Detect pattern (only if not using stubs)
         pattern_result = detect_pattern(candle_dict)
         
         # Return in the format expected by the signal generator

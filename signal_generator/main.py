@@ -53,6 +53,10 @@ class PatternData(BaseModel):
     details: Dict[str, float]
     candle_timestamp: str
 
+class PatternDetection(BaseModel):
+    patterns: List[Dict[str, Any]]
+    candle: CandleData
+
 class GenerateSignalRequest(BaseModel):
     pattern: PatternData
     candle: CandleData

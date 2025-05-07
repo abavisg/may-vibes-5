@@ -1,1 +1,3 @@
-# Pattern Detector module 
+"""
+Pattern detector package for analyzing market data candles.
+""" 

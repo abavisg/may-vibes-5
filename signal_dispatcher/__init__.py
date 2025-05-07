@@ -1,1 +1,3 @@
-# Signal Dispatcher module 
+"""
+Signal dispatcher package for distributing trading signals.
+""" 
