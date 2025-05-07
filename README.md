@@ -323,3 +323,46 @@ The API returns data in this format:
     "status": "ok"
 }
 ``` 
+
+## 🧹 Code Refactoring Recommendations
+
+Several code improvements have been identified and applied to reduce duplication and improve maintainability:
+
+### Completed Refactorings
+
+1. **Poller Service Improvements**:
+   - Created a reusable `fetch_and_process_candle()` helper function that centralizes candle processing logic
+   - Added improved error handling with specific error messages for easier debugging
+   - Fixed provider dictionary lookup issue in `fetch_candle()` function
+
+### Recommended Additional Refactorings
+
+1. **Provider Dictionary Issue**:
+   - Replace hardcoded provider references with proper dictionary lookups
+   - Fix: `provider = PROVIDERS.get(DATA_PROVIDER)` instead of `provider = twelvedata`
+
+2. **Common HTTP Client Logic**:
+   - All services have similar HTTP client code for inter-service communication
+   - Consider creating a shared library for this common functionality
+
+3. **Logging Standardization**:
+   - Standardize logging formats and levels across all services
+   - Consider implementing a centralized logging solution
+
+4. **Error Handling Patterns**:
+   - Implement consistent error handling and retry logic across services
+   - Add circuit breaker patterns for service resilience
+
+5. **Configuration Management**:
+   - Move hardcoded configuration values to a centralized config system
+   - Consider using a centralized service for configuration management
+
+6. **Data Structure Validation**:
+   - Use consistent data validation methods across services
+   - Consider using Pydantic models for validating inter-service messages
+
+7. **Test Coverage**:
+   - Add comprehensive unit and integration tests
+   - Add mocks for external services to enable reliable testing
+
+To incorporate these improvements, follow the documented code style and structure conventions shown in the Poller Service Code Improvements section. 
