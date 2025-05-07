@@ -73,15 +73,14 @@ AI-detected pattern:
    # TwelveData API key
    TWELVE_DATA_API_KEY=your_api_key_here
 
-   # Feature toggles
-   FORCE_MOCK_DATA=false
+   # Poller stub mode (optional)
    USE_SIGNAL_STUBS=true
    
    # Ollama configuration
    USE_OLLAMA=true
    OLLAMA_MODEL=llama3:8b
 
-   # Signal stub settings
+   # Signal stub settings (only used by poller)
    BUY_SIGNAL_FREQUENCY=0.3
    SELL_SIGNAL_FREQUENCY=0.3
    ```
@@ -200,7 +199,8 @@ The system can be configured using environment variables:
 - `MCP_URL`: URL of the MCP server (default: `http://localhost:8000/mcp/candle`)
 - `POLLING_INTERVAL`: Time between candle polls in seconds (default: `30`)
 - `TWELVE_DATA_API_KEY`: API key for TwelveData (optional, falls back to mock data if not provided)
-- `FORCE_MOCK_DATA`: Set to 'true' to use mock data even if API key is provided (default: `false`)
+- `USE_SIGNAL_STUBS`: If set, poller will generate mock candle data instead of fetching from TwelveData. **This only affects the poller.**
+- `BUY_SIGNAL_FREQUENCY`, `SELL_SIGNAL_FREQUENCY`: Control the frequency of stub signals (only used if stubs are enabled in the poller).
 
 ### MCP Server
 - `PATTERN_DETECTOR_URL`: URL of the pattern detector service (default: `http://localhost:8001/detect`)
@@ -214,9 +214,7 @@ The system can be configured using environment variables:
 - `OLLAMA_TIMEOUT`: Timeout in seconds for Ollama requests (default: `15`)
 
 ### Signal Generator
-- `USE_SIGNAL_STUBS`: Set to 'true' to use stub signal generators (default: `false`)
-- `BUY_SIGNAL_FREQUENCY`: Probability of generating BUY signals (default: `0.3`)
-- `SELL_SIGNAL_FREQUENCY`: Probability of generating SELL signals (default: `0.3`)
+- No stub or mock settings. Always generates signals based on input patterns.
 
 ### Signal Dispatcher
 - `SIGNAL_LOG_DIR`: Directory for signal log files (default: `./signal_logs`)
@@ -251,20 +249,16 @@ python test_twelvedata.py YOUR_API_KEY XAU/USD
 
 The system includes several features to facilitate development:
 
-### Mock Data Generation
+### Poller Stubs (Mock Candle Data)
 
-When the TwelveData API key is not available or `FORCE_MOCK_DATA=true`, the Poller service generates synthetic price data for testing.
+To develop and test signal handling without depending on real market data:
 
-### Signal Stubs
-
-To develop and test signal handling without depending on specific patterns:
-
-1. Set `USE_SIGNAL_STUBS=true` in your environment
+1. Set `USE_SIGNAL_STUBS=true` in your environment (only affects the poller)
 2. Configure stub behavior with:
    - `BUY_SIGNAL_FREQUENCY`: Probability (0-1) of generating a BUY signal for each candle
    - `SELL_SIGNAL_FREQUENCY`: Probability (0-1) of generating a SELL signal for each candle
 
-This allows testing the full pipeline with predictable signals without consuming TwelveData API quotas.
+This allows testing the full pipeline with predictable signals without consuming TwelveData API quotas. All other services (pattern detector, MCP, signal generator, dispatcher) will process the data as normal, regardless of its source.
 
 ### Pattern Detection Methods
 
@@ -272,16 +266,15 @@ The system supports three pattern detection methods:
 
 1. **AI-Powered Detection**: Uses Ollama LLMs to identify complex patterns (`USE_OLLAMA=true`)
 2. **Rule-Based Detection**: Uses simple algorithmic pattern detection (`USE_OLLAMA=false`)
-3. **No Detection**: Skips pattern detection entirely for testing (`USE_SIGNAL_STUBS=true`)
 
 ### Development Modes
 
 The system supports several operating modes:
 
 1. **Full Production**: Uses TwelveData API for real market data with AI pattern detection
-2. **Mixed Mode 1**: Uses mock market data with AI pattern detection
+2. **Mixed Mode 1**: Uses mock market data with AI pattern detection (set `USE_SIGNAL_STUBS=true` in poller)
 3. **Mixed Mode 2**: Uses real market data with rule-based pattern detection
-4. **Development Mode**: Uses both mock data and signal stubs for end-to-end testing
+4. **Development Mode**: Uses both mock data and poller stubs for end-to-end testing
 
 Configure your mode by setting the appropriate environment variables in your `.env` file.
 
