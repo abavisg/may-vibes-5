@@ -1,15 +1,13 @@
 import asyncio
-import datetime
-import json
 import logging
 import os
-import random
 from typing import Dict, Optional
 
 import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI
 import uvicorn
+from poller.candle_generator import generate_candle
 
 # Configure minimal logging
 logging.basicConfig(
@@ -25,10 +23,8 @@ load_dotenv()
 # Configuration
 MCP_URL = os.getenv("MCP_URL", "http://localhost:8000/mcp/candle")
 POLLING_INTERVAL = int(os.getenv("POLLING_INTERVAL", "5"))  # seconds
-TWELVE_DATA_API_KEY = os.getenv("TWELVE_DATA_API_KEY")
-USE_SIGNAL_STUBS = os.getenv("USE_SIGNAL_STUBS", "false").lower() == "true"
-
-from poller.candle_generator import generate_candle
+USE_SIGNAL_STUBS = os.getenv("USE_SIGNAL_STUBS")
+DATA_PROVIDER = os.getenv("DATA_PROVIDER", "twelvedata").lower()
 
 app = FastAPI(
     title="Poller Service",
@@ -40,53 +36,64 @@ poller_running = False
 poller_task = None
 last_candle = None
 
-def transform_twelve_data_response(data: Dict) -> Dict:
-    try:
-        if data.get("status") != "ok" or not data.get("values"):
-            return None
-        candle_data = data["values"][0]
-        candle = {
-            "symbol": data["meta"]["symbol"],
-            "timestamp": candle_data["datetime"],
-            "open": float(candle_data["open"]),
-            "high": float(candle_data["high"]),
-            "low": float(candle_data["low"]),
-            "close": float(candle_data["close"]),
-            "volume": int(candle_data["volume"]) if candle_data.get("volume") else 0
-        }
-        return candle
-    except Exception:
-        return None
+# --- Provider registry ---
+PROVIDERS = {}
+PARSERS = {}
 
-async def get_real_candle() -> Optional[Dict]:
-    try:
-        url = f"https://api.twelvedata.com/time_series?symbol=XAU/USD&interval=1min&apikey={TWELVE_DATA_API_KEY}&format=JSON&dp=3"
-        async with httpx.AsyncClient() as client:
-            response = await client.get(url)
-            response.raise_for_status()
-            data = response.json()
-            candle = transform_twelve_data_response(data)
+# Import providers and parsers dynamically
+try:
+    from poller.data_providers import twelvedata, finnhub
+    from poller.parsers import twelvedata as twelvedata_parser, finnhub as finnhub_parser
+    PROVIDERS["twelvedata"] = twelvedata
+    PROVIDERS["finnhub"] = finnhub
+    PARSERS["twelvedata"] = twelvedata_parser
+    PARSERS["finnhub"] = finnhub_parser
+except ImportError as e:
+    logger.warning(f"Could not import all data providers/parsers: {e}")
+
+async def fetch_candle(symbol: str = "XAU/USD") -> Optional[Dict]:
+    logging.info(f"Fetching candle from {DATA_PROVIDER} provider")
+    provider = twelvedata #PROVIDERS.get(DATA_PROVIDER)
+    parser = twelvedata_parser #PARSERS.get(DATA_PROVIDER)
+    if provider and parser:
+        try:
+            raw = await provider.fetch_candle(symbol)
+            candle = parser.parse_candle_response(raw)
             if candle:
                 return candle
-            else:
-                return None
-    except Exception:
-        return None
+        except Exception as e:
+            logger.warning(f"{DATA_PROVIDER} provider failed: {e}")
+    # Fallback: try other providers
+    # for name, prov in PROVIDERS.items():
+    #     if name == DATA_PROVIDER:
+    #         continue
+    #     try:
+    #         raw = await prov.fetch_candle(symbol)
+    #         candle = PARSERS[name].parse_candle_response(raw)
+    #         if candle:
+    #             logger.info(f"Fallback to {name} provider succeeded.")
+    #             return candle
+    #     except Exception as e:
+    #         logger.warning(f"Fallback provider {name} failed: {e}")
+    return None
 
 async def poll_and_send():
+    logging.info("Starting poller background task")
     global poller_running, last_candle
     poll_count = 0
     async with httpx.AsyncClient() as client:
         while poller_running:
             try:
                 poll_count += 1
+
+                logging.info(f"Fetching candle from {DATA_PROVIDER} provider")
+                candle = await fetch_candle()
                 # Get candle data (real or mock)
-                candle = None
-                if USE_SIGNAL_STUBS:
-                    candle = generate_candle()
-                else:
-                    candle = await get_real_candle()
-                
+                #candle = None
+                # if USE_SIGNAL_STUBS:
+                #     candle = generate_candle()
+                # else:
+                #     candle = await fetch_candle()
                 last_candle = candle
                 logger.info(f"[POLL] Input: {candle}")
                 response = await client.post(MCP_URL, json=candle)
@@ -96,6 +103,7 @@ async def poll_and_send():
                 await asyncio.sleep(5)
 
 async def start_poller_background():
+    logging.info("Starting poller background task")
     global poller_running, poller_task
     if poller_running:
         return
@@ -128,7 +136,7 @@ async def health_check():
         "last_candle_time": last_candle["timestamp"] if last_candle else None,
         "config": {
             "polling_interval": POLLING_INTERVAL,
-            "using_mock_data": USE_SIGNAL_STUBS
+            "data_provider": DATA_PROVIDER
         }
     }
 
@@ -142,13 +150,11 @@ async def get_last_candle():
 @app.post("/trigger-poll")
 async def trigger_poll():
     try:
-        # if USE_SIGNAL_STUBS:
-        #     candle = generate_candle()
-        # else:
-        #     candle = await get_real_candle()
-
-        candle = await get_real_candle()
-
+        candle = None
+        if not USE_SIGNAL_STUBS:
+            candle = await fetch_candle()
+        if candle is None:
+            candle = generate_candle()
         logger.info(f"[TRIGGER] Input: {candle}")
         async with httpx.AsyncClient() as client:
             response = await client.post(MCP_URL, json=candle)
