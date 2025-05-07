@@ -55,6 +55,21 @@ def cleanup(sig=None, frame=None):
     print("All services stopped.")
     sys.exit(0)
 
+def get_poller_env():
+    """Get environment variables for the poller service"""
+    env = os.environ.copy()
+    
+    # Set default environment variables if they don't exist
+    if "MCP_URL" not in env:
+        env["MCP_URL"] = "http://localhost:8000/mcp/candle"
+    
+    if "POLLING_INTERVAL" not in env:
+        env["POLLING_INTERVAL"] = "30"
+    
+    # Note: TWELVE_DATA_API_KEY will be passed as-is if it exists in the environment
+    
+    return env
+
 def main():
     """Main function to start all services"""
     # Register signal handlers for graceful shutdown
@@ -93,6 +108,16 @@ def main():
         
         # Start the poller service
         print(f"Starting {POLLER['name']} service...")
+        
+        # Get environment variables for the poller
+        poller_env = get_poller_env()
+        
+        # Check if TwelveData API key is set
+        if "TWELVE_DATA_API_KEY" in poller_env:
+            print(f"TwelveData API key is set, will use real market data")
+        else:
+            print(f"TwelveData API key is not set, will use mock candle data")
+        
         poller_process = subprocess.Popen(
             [sys.executable, "-m", POLLER["module"]],
             # Redirect stdout and stderr to the parent process
@@ -100,6 +125,7 @@ def main():
             stderr=subprocess.STDOUT,
             text=True,
             bufsize=1,  # Line-buffered
+            env=poller_env,  # Pass environment variables
         )
         
         processes.append(poller_process)
