@@ -16,7 +16,7 @@ SERVICES = [
     {"name": "pattern_detector", "port": 8001, "module": "pattern_detector.main:app"},
     {"name": "signal_generator", "port": 8002, "module": "signal_generator.main:app"},
     {"name": "signal_dispatcher", "port": 8003, "module": "signal_dispatcher.main:app"},
-    {"name": "mcp", "port": 8000, "module": "mcp.main:app"},
+    {"name": "mcp", "port": 8000, "module": "mcp.main:app"},  # Model Context Protocol
 ]
 
 # Poller is started last (after all APIs are up)
