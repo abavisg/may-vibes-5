@@ -23,7 +23,7 @@ logger.info("Poller service starting up")
 
 # Configuration
 MCP_URL = os.getenv("MCP_URL", "http://localhost:8000/mcp/candle")
-POLLING_INTERVAL = int(os.getenv("POLLING_INTERVAL", "3"))  # seconds
+POLLING_INTERVAL = int(os.getenv("POLLING_INTERVAL", "10"))  # seconds
 TWELVE_DATA_API_KEY = os.getenv("TWELVE_DATA_API_KEY")
 USE_MOCK_DATA = TWELVE_DATA_API_KEY is None or os.getenv("FORCE_MOCK_DATA", "false").lower() == "true"  # Use mock data if API key is not provided or FORCE_MOCK_DATA is true
 USE_SIGNAL_STUBS = os.getenv("USE_SIGNAL_STUBS", "false").lower() == "true"  # Use stub signal generators

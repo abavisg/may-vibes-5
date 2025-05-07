@@ -8,14 +8,54 @@ A multi-service architecture for processing financial market signals.
 - FastAPI for microservices
 - Uvicorn for development servers
 - HTTPX for inter-service communication
+- Ollama for AI-powered pattern detection
 
 ## 🧩 Components (Independent FastAPI Services)
 
 - **Poller Service**: Fetches 1m XAUUSD candles periodically and sends to MCP
 - **MCP Server**: Central orchestration service that routes candles to appropriate services
-- **Pattern-Detector Host**: Analyzes candles and detects patterns
+- **Pattern-Detector Host**: Analyzes candles and detects patterns using AI or rule-based algorithms
 - **Signal Generator Host**: Generates trading signals based on patterns
 - **Signal Dispatcher Host**: Dispatches signals to various outputs (logs, webhooks, etc.)
+
+## 🤖 AI-Powered Pattern Detection
+
+The Pattern Detector service now integrates with Ollama to provide advanced candlestick pattern recognition:
+
+### Features
+
+- **AI Pattern Recognition**: Uses Ollama LLMs to identify complex candlestick patterns like Engulfing, Doji, Hammers, etc.
+- **Pattern Explanation**: Provides detailed explanations of detected patterns with price predictions
+- **Configurable Models**: Works with any Ollama model (default: llama3:8b)
+- **Graceful Fallback**: Falls back to rule-based detection when Ollama is unavailable
+- **Two API Endpoints**: `/detect` for pattern detection and `/explain` for detailed explanations
+
+### Configuration
+
+Configure the Pattern Detector using these environment variables:
+
+- `USE_OLLAMA`: Set to "true" to enable AI-powered pattern detection (default: true)
+- `OLLAMA_MODEL`: The Ollama model to use (default: "llama3:8b")
+- `OLLAMA_API_URL`: URL to the Ollama API (default: "http://localhost:11434/api/chat")
+- `OLLAMA_TIMEOUT`: Timeout for Ollama API calls in seconds (default: 15)
+
+### Example Output
+
+AI-detected pattern:
+```json
+{
+  "pattern": "Bullish Engulfing",
+  "type": "bullish",
+  "strength": 80,
+  "description": "A strong bullish signal indicating a potential reversal from bearish trend",
+  "prediction": "Possible short-term price increase"
+}
+```
+
+### Requirements
+
+- Ollama installed locally or remotely: [Install Ollama](https://ollama.ai/download)
+- At least one LLM model available (e.g., run `ollama pull llama3:8b`)
 
 ## 🚀 How to Run
 
@@ -36,6 +76,10 @@ A multi-service architecture for processing financial market signals.
    # Feature toggles
    FORCE_MOCK_DATA=false
    USE_SIGNAL_STUBS=true
+   
+   # Ollama configuration
+   USE_OLLAMA=true
+   OLLAMA_MODEL=llama3:8b
 
    # Signal stub settings
    BUY_SIGNAL_FREQUENCY=0.3
@@ -54,7 +98,19 @@ A multi-service architecture for processing financial market signals.
      ```
    - Without an API key, the system will fall back to generating mock candle data
 
-4. **Run with Docker Compose (Recommended)**:
+4. **Ollama Setup (Optional but Recommended)**:
+   
+   For AI-powered pattern detection:
+   
+   - Install Ollama from [ollama.ai/download](https://ollama.ai/download)
+   - Pull a language model: `ollama pull llama3:8b`
+   - Set environment variables:
+     ```
+     export USE_OLLAMA=true
+     export OLLAMA_MODEL=llama3:8b
+     ```
+
+5. **Run with Docker Compose (Recommended)**:
    ```
    docker-compose up
    ```
@@ -64,7 +120,7 @@ A multi-service architecture for processing financial market signals.
    TWELVE_DATA_API_KEY=your_api_key_here docker-compose up
    ```
 
-5. **Run Locally**:
+6. **Run Locally**:
    
    You can use the helper script that starts all services in separate processes:
    ```
@@ -80,7 +136,7 @@ A multi-service architecture for processing financial market signals.
 
    # Start Pattern Detector (port 8001)
    cd pattern_detector
-   uvicorn main:app --reload --port 8001
+   PYTHONPATH=.. uvicorn main:app --reload --port 8001
 
    # Start Signal Generator (port 8002)
    cd signal_generator
@@ -99,7 +155,7 @@ A multi-service architecture for processing financial market signals.
 
 1. Poller fetches candles from TwelveData (or generates mock data)
 2. MCP receives candle at `/mcp/candle`
-3. MCP routes to Pattern-Detector
+3. MCP routes to Pattern-Detector (using Ollama or rule-based detection)
 4. If pattern is detected, calls Signal Generator
 5. Signal Generator creates a signal
 6. Signal is passed to Signal Dispatcher
@@ -109,15 +165,17 @@ A multi-service architecture for processing financial market signals.
 
 ```
 .
-├── mcp/                      # Main Control Program service
+├── mcp/                      # Model Context Protocol service
 │   ├── __init__.py
 │   └── main.py
 ├── poller/                   # Candle data poller service
 │   ├── __init__.py
-│   └── main.py
+│   ├── main.py
+│   └── candle_generator.py   # Mock candle generation
 ├── pattern_detector/         # Pattern detection service
 │   ├── __init__.py
-│   └── main.py
+│   ├── main.py
+│   └── ollama_client.py      # AI-powered pattern detection
 ├── signal_generator/         # Signal generation service
 │   ├── __init__.py
 │   ├── main.py
@@ -148,6 +206,12 @@ The system can be configured using environment variables:
 - `PATTERN_DETECTOR_URL`: URL of the pattern detector service (default: `http://localhost:8001/detect`)
 - `SIGNAL_GENERATOR_URL`: URL of the signal generator service (default: `http://localhost:8002/generate`)
 - `SIGNAL_DISPATCHER_URL`: URL of the signal dispatcher service (default: `http://localhost:8003/dispatch`)
+
+### Pattern Detector
+- `USE_OLLAMA`: Enable AI-powered pattern detection (default: `true`)
+- `OLLAMA_MODEL`: Model to use with Ollama (default: `llama3:8b`)
+- `OLLAMA_API_URL`: URL to the Ollama API (default: `http://localhost:11434/api/chat`)
+- `OLLAMA_TIMEOUT`: Timeout in seconds for Ollama requests (default: `15`)
 
 ### Signal Generator
 - `USE_SIGNAL_STUBS`: Set to 'true' to use stub signal generators (default: `false`)
@@ -185,7 +249,7 @@ python test_twelvedata.py YOUR_API_KEY XAU/USD
 
 ## 🔄 Development Features
 
-The system includes several features to facilitate development without consuming API quotas:
+The system includes several features to facilitate development:
 
 ### Mock Data Generation
 
@@ -202,13 +266,22 @@ To develop and test signal handling without depending on specific patterns:
 
 This allows testing the full pipeline with predictable signals without consuming TwelveData API quotas.
 
+### Pattern Detection Methods
+
+The system supports three pattern detection methods:
+
+1. **AI-Powered Detection**: Uses Ollama LLMs to identify complex patterns (`USE_OLLAMA=true`)
+2. **Rule-Based Detection**: Uses simple algorithmic pattern detection (`USE_OLLAMA=false`)
+3. **No Detection**: Skips pattern detection entirely for testing (`USE_SIGNAL_STUBS=true`)
+
 ### Development Modes
 
-The system supports three operating modes:
+The system supports several operating modes:
 
-1. **Full Production**: Uses TwelveData API for real market data with actual pattern detection logic
-2. **Mixed Mode**: Uses mock market data with real pattern detection logic
-3. **Development Mode**: Uses both mock data and signal stubs for end-to-end testing
+1. **Full Production**: Uses TwelveData API for real market data with AI pattern detection
+2. **Mixed Mode 1**: Uses mock market data with AI pattern detection
+3. **Mixed Mode 2**: Uses real market data with rule-based pattern detection
+4. **Development Mode**: Uses both mock data and signal stubs for end-to-end testing
 
 Configure your mode by setting the appropriate environment variables in your `.env` file.
 
