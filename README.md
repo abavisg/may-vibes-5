@@ -169,8 +169,16 @@ AI-detected pattern:
 │   └── main.py
 ├── poller/                   # Candle data poller service
 │   ├── __init__.py
-│   ├── main.py
-│   └── candle_generator.py   # Mock candle generation
+│   ├── main.py               # FastAPI app with polling logic
+│   ├── candle_generator.py   # Mock candle generation
+│   ├── data_providers/       # Market data providers
+│   │   ├── __init__.py
+│   │   ├── twelvedata.py     # TwelveData API client
+│   │   └── finnhub.py        # Finnhub API client
+│   └── parsers/              # Response parsers for providers
+│       ├── __init__.py
+│       ├── twelvedata.py     # TwelveData response parser
+│       └── finnhub.py        # Finnhub response parser
 ├── pattern_detector/         # Pattern detection service
 │   ├── __init__.py
 │   ├── main.py
@@ -201,6 +209,7 @@ The system can be configured using environment variables:
 - `TWELVE_DATA_API_KEY`: API key for TwelveData (optional, falls back to mock data if not provided)
 - `USE_SIGNAL_STUBS`: If set, poller will generate mock candle data instead of fetching from TwelveData. **This only affects the poller.**
 - `BUY_SIGNAL_FREQUENCY`, `SELL_SIGNAL_FREQUENCY`: Control the frequency of stub signals (only used if stubs are enabled in the poller).
+- `DATA_PROVIDER`: Market data provider to use (default: `twelvedata`, other option: `finnhub`)
 
 ### MCP Server
 - `PATTERN_DETECTOR_URL`: URL of the pattern detector service (default: `http://localhost:8001/detect`)
@@ -259,6 +268,16 @@ To develop and test signal handling without depending on real market data:
    - `SELL_SIGNAL_FREQUENCY`: Probability (0-1) of generating a SELL signal for each candle
 
 This allows testing the full pipeline with predictable signals without consuming TwelveData API quotas. All other services (pattern detector, MCP, signal generator, dispatcher) will process the data as normal, regardless of its source.
+
+### Poller Service Code Improvements
+
+The poller service has been refactored to improve code organization and reliability:
+
+1. **Modular Design**: Created a reusable `fetch_and_process_candle()` helper function that centralizes candle processing logic
+2. **Error Handling**: Added improved error handling with specific error messages for easier debugging
+3. **Data Provider Configuration**: Service is configured to use TwelveData by default, but is designed to support multiple data providers
+4. **API Endpoints**: Provides health check, last candle information, and manual polling trigger endpoints
+5. **Background Processing**: Runs polling in a separate background task for better performance
 
 ### Pattern Detection Methods
 
