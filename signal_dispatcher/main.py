@@ -206,8 +206,8 @@ Price: {entry_price}
 SL: {stop_loss}
 TP: {take_profit}"""
     
-    # Log the message to the terminal
-    logger.info(f"MESSAGING SIGNAL: \n{message}")
+    # Print directly to stdout for clean terminal display
+    print(f"\n=== MESSAGING SIGNAL ===\n{message}\n======================")
     
     return message
 
@@ -236,7 +236,7 @@ async def dispatch_signal(signal: TradingSignal):
         logger.info("STEP 1: Formatting signal for human-readable output")
         human_readable = format_signal_for_human(signal_dict)
         
-        # Format signal for messaging platform
+        # Format signal for messaging platform and print to terminal
         logger.info("STEP 2: Formatting signal for messaging platform")
         messaging_signal = format_messaging_signal(signal_dict)
         
@@ -249,16 +249,13 @@ async def dispatch_signal(signal: TradingSignal):
         webhook_result = await send_signal_to_webhook(signal_dict)
         
         logger.info(f"Signal {signal.id} dispatched successfully to all configured outputs")
+        
+        # Return a simple response
         return {
             "status": "success",
-            "message": "Signal dispatched successfully",
-            "outputs": {
-                "log_file": log_file,
-                "webhook_result": webhook_result,
-                "human_readable": human_readable,
-                "messaging_signal": messaging_signal
-            }
+            "message": "Signal dispatched successfully"
         }
+        
     except Exception as e:
         error_msg = f"Error dispatching signal {signal.id}: {str(e)}"
         logger.error(error_msg, exc_info=True)
