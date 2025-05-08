@@ -47,31 +47,34 @@ async def detect_patterns_with_ollama(candle: Dict[str, Any]) -> List[Dict[str, 
     
     # Prepare the prompt for Ollama
     prompt = f"""
-You are an expert technical analyst specializing in candlestick patterns. 
-Analyze the following candlestick data for {symbol} and identify any recognizable patterns.
+You are an expert technical analyst specializing in candlestick pattern recognition.
 
-Candlestick data for {timestamp}:
+Analyze the following single candlestick for {symbol} on {timestamp}. Use only the data provided below and recognized, well-defined candlestick patterns from technical analysis literature.
+
+Candlestick data:
 - Open: {open_price}
 - High: {high_price}
 - Low: {low_price}
 - Close: {close_price}
 - Volume: {volume}
 
-Additional metrics:
+Derived metrics:
 - Body size: {body_size:.2f}
 - Price range: {price_range:.2f}
 - Direction: {"Bullish" if is_bullish else "Bearish"}
-- Body percentage of range: {body_percent:.2f}%
+- Body-to-range ratio: {body_percent:.2f}%
 
-Identify any candlestick patterns present in this single candle.
-If multiple patterns are present, list them all.
-For each pattern, provide:
+Your task is to determine whether this single candlestick matches any known candlestick patterns.
+
+Do not guess or invent patterns. If there are no matches, return an empty array. If there are multiple valid matches, return all of them.
+
+For each pattern, respond with:
 1. Pattern name
-2. Pattern type (bullish, bearish, or neutral)
-3. Pattern strength (0-100 scale)
-4. Brief description of what this pattern suggests for future price movement
+2. Pattern type: bullish, bearish, or neutral
+3. Pattern strength (0–100 scale based on how well the candle matches the known pattern)
+4. A concise description of what this pattern suggests about possible price movement
 
-Respond in the following JSON format only:
+Respond in **this exact JSON format only**:
 {{
   "patterns": [
     {{
@@ -84,7 +87,8 @@ Respond in the following JSON format only:
   ]
 }}
 
-If no recognizable patterns are found, return an empty patterns array.
+If no patterns are detected, return:
+{{ "patterns": [] }}
 """
     
     try:
