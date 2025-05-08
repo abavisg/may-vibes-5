@@ -7,7 +7,7 @@ import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI
 import uvicorn
-from poller.candle_generator import generate_candle
+from poller.candle_generator import generate_dummy_candles
 
 # Configure minimal logging
 logging.basicConfig(
@@ -23,7 +23,7 @@ load_dotenv()
 # Configuration
 MCP_URL = os.getenv("MCP_URL", "http://localhost:8000/mcp/candle")
 POLLING_INTERVAL = int(os.getenv("POLLING_INTERVAL", "5"))  # seconds
-USE_SIGNAL_STUBS = os.getenv("USE_SIGNAL_STUBS")
+USE_SIGNAL_STUBS = os.getenv("USE_SIGNAL_STUBS", "").lower() in ("true", "1", "yes")
 DATA_PROVIDER = os.getenv("DATA_PROVIDER", "twelvedata").lower()
 
 app = FastAPI(
@@ -61,33 +61,31 @@ async def fetch_candle(symbol: str = "XAU/USD") -> Optional[Dict]:
             candle = parser.parse_candle_response(raw)
             if candle:
                 return candle
+            else:
+                logger.error(f"Could not parse response from {DATA_PROVIDER}: {raw}")
+                return None
+        except ValueError as e:
+            # This is likely a configuration error (missing API key, etc.)
+            logger.error(f"{DATA_PROVIDER} provider configuration error: {e}")
+            return None
         except Exception as e:
-            logger.warning(f"{DATA_PROVIDER} provider failed: {e}")
-    
-    # Fallback logic is disabled for now
-    # Uncomment this section to enable fallback to other providers
-    # for name, prov in PROVIDERS.items():
-    #     if name == DATA_PROVIDER:
-    #         continue
-    #     try:
-    #         raw = await prov.fetch_candle(symbol)
-    #         candle = PARSERS[name].parse_candle_response(raw)
-    #         if candle:
-    #             logger.info(f"Fallback to {name} provider succeeded.")
-    #             return candle
-    #     except Exception as e:
-    #         logger.warning(f"Fallback provider {name} failed: {e}")
-    
-    return None
+            logger.error(f"{DATA_PROVIDER} provider failed: {e}")
+            return None
+    else:
+        logger.error(f"Provider {DATA_PROVIDER} or its parser not found")
+        return None
 
 async def fetch_and_process_candle():
     """Helper function to fetch candle data and send it to MCP"""
     try:
         candle = None
-        if not USE_SIGNAL_STUBS:
+        if USE_SIGNAL_STUBS:
+            candle = generate_dummy_candles()
+        else:
             candle = await fetch_candle()
-        if candle is None:
-            candle = generate_candle()
+            if candle is None:
+                logger.error("Failed to fetch candle data from TwelveData API. Not falling back to dummy data.")
+                return None, None
         
         logger.info(f"[PROCESS] Input: {candle}")
         async with httpx.AsyncClient() as client:
@@ -105,8 +103,9 @@ async def poll_and_send():
     while poller_running:
         try:
             poll_count += 1
-            candle, _ = await fetch_and_process_candle()
-            last_candle = candle
+            candle, response = await fetch_and_process_candle()
+            if candle is not None:
+                last_candle = candle
             await asyncio.sleep(POLLING_INTERVAL)
         except Exception as e:
             logger.error(f"Error in poll_and_send: {str(e)}")
@@ -131,10 +130,10 @@ async def shutdown_event():
     logger.info("Poller service stopped.")
     poller_running = False
     if poller_task:
+        poller_task.cancel()
         try:
-            poller_task.cancel()
-            await asyncio.wait_for(poller_task, timeout=5.0)
-        except Exception:
+            await poller_task
+        except asyncio.CancelledError:
             pass
 
 @app.get("/health")

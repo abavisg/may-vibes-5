@@ -49,6 +49,7 @@ class Candle(BaseModel):
     low: float
     close: float
     volume: int
+    type_of_data: str
 
 async def call_pattern_detector(candle: Dict[str, Any]) -> Dict[str, Any]:
     async with httpx.AsyncClient(timeout=30.0) as client:

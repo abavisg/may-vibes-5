@@ -55,6 +55,7 @@ async def generate_signal(pattern_detection: PatternDetection):
             "entry_price": candle.get("close"),
             "stop_loss": candle.get("close", 0) * 1.01,
             "take_profit": candle.get("close", 0) * 0.98,
+            "type_of_data": candle.get("type_of_data", "DUMMY"),
             "pattern": pattern
         }
         logger.info(f"Output: {signal}")

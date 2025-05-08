@@ -41,6 +41,7 @@ class TradingSignal(BaseModel):
     stop_loss: Optional[float] = None
     take_profit: Optional[float] = None
     pattern: Dict[str, Any]
+    type_of_data: str
 
 def log_signal_to_file(signal: Dict[str, Any]) -> str:
     today = datetime.now().strftime("%Y-%m-%d")

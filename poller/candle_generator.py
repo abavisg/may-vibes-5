@@ -10,7 +10,7 @@ from typing import Dict
 
 logger = logging.getLogger(__name__)
 
-class ExternalCandleGenerator:
+class DummyCandleGenerator:
     """External candle generator implementation"""
     
     def __init__(self, symbol="XAUUSD", base_price=8000.0, volatility=0.001):
@@ -25,7 +25,7 @@ class ExternalCandleGenerator:
         self.symbol = symbol
         self.last_price = base_price
         self.volatility = volatility
-        logger.info(f"Initialized external candle generator for {symbol} with base price {base_price}")
+        logger.info(f"Initialized dummy candle generator for {symbol} with base price {base_price}")
     
     def generate_candle(self) -> Dict:
         """
@@ -58,6 +58,7 @@ class ExternalCandleGenerator:
         
         # Create and return the candle data
         return {
+            "type_of_data": "DUMMY",
             "symbol": self.symbol,
             "timestamp": timestamp,
             "open": round(open_price, 2),
@@ -68,9 +69,9 @@ class ExternalCandleGenerator:
         }
 
 # Create a singleton instance
-_generator = ExternalCandleGenerator()
+_generator = DummyCandleGenerator()
 
-def generate_candle() -> Dict:
+def generate_dummy_candles() -> Dict:
     """
     Generate a candle using the singleton generator instance.
     This is the main function to be imported and used by other modules.
@@ -90,7 +91,7 @@ if __name__ == "__main__":
     )
     
     # Test the generator
-    generator = ExternalCandleGenerator()
+    generator = DummyCandleGenerator()
     for _ in range(5):
         candle = generator.generate_candle()
         print(f"Generated candle: {candle}") 

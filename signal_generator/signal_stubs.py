@@ -46,6 +46,7 @@ class BuySignalStub:
             take_profit = entry_price * 1.02  # 2% above entry
             
             return {
+                "type_of_data": "DUMMY",
                 "id": str(uuid.uuid4()),
                 "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "symbol": "XAUUSD-Dummy", #candle["symbol"],
@@ -98,6 +99,7 @@ class SellSignalStub:
             take_profit = entry_price * 0.98  # 2% below entry
             
             return {
+                "type_of_data": "DUMMY",
                 "id": str(uuid.uuid4()),
                 "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "symbol": candle["symbol"],
