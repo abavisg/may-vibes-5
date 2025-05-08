@@ -9,6 +9,7 @@ A multi-service architecture for processing financial market signals.
 - Uvicorn for development servers
 - HTTPX for inter-service communication
 - Ollama for AI-powered pattern detection
+- Flutter for the web frontend UI
 
 ## 🧩 Components (Independent FastAPI Services)
 
@@ -239,6 +240,13 @@ This ensures that the Flutter web app can communicate with the backend services 
 │   │   │   └── signal.dart   # Signal data model
 │   │   └── services/
 │   │       └── signal_service.dart  # API service
+│   ├── pubspec.yaml          # Flutter dependencies
+│   ├── web/                  # Web-specific assets
+│   │   ├── index.html        # HTML entry point
+│   │   ├── manifest.json     # Web app manifest
+│   │   └── favicon.png       # App icon
+│   ├── .vscode/              # VS Code configuration
+│   │   └── launch.json       # Debug launch configurations
 │   └── run_web.sh            # Script to run the web app
 ├── signal_logs/              # Directory for signal log files
 ├── Dockerfile                # Docker image definition
@@ -331,7 +339,7 @@ The poller service has been refactored to improve code organization and reliabil
 
 ### Pattern Detection Methods
 
-The system supports three pattern detection methods:
+The system supports two pattern detection methods:
 
 1. **AI-Powered Detection**: Uses Ollama LLMs to identify complex patterns (`USE_OLLAMA=true`)
 2. **Rule-Based Detection**: Uses simple algorithmic pattern detection (`USE_OLLAMA=false`)
