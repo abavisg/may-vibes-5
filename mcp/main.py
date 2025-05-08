@@ -10,13 +10,36 @@ from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
-# Configure minimal logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] [mcp] %(message)s",
-    handlers=[logging.StreamHandler(sys.stdout), logging.FileHandler("mcp_debug.log")]
-)
-logger = logging.getLogger(__name__)
+# Ensure logs directory exists
+LOG_DIR = "logs"
+os.makedirs(LOG_DIR, exist_ok=True)
+
+# Map environment variable string to logging level
+LOGGING_LEVEL = os.getenv("LOGGING_LEVEL", "DEBUG").upper()
+LOG_LEVEL_MAP = {
+    "DEBUG": logging.DEBUG,
+    "INFO": logging.INFO,
+    "WARNING": logging.WARNING,
+    "ERROR": logging.ERROR,
+    "CRITICAL": logging.CRITICAL
+}
+
+# Determine the logging level, default to DEBUG if not recognized
+logging_level = LOG_LEVEL_MAP.get(LOGGING_LEVEL, logging.DEBUG)
+
+# Custom filter to allow only INFO level messages for console
+class InfoFilter(logging.Filter):
+    def filter(self, record):
+        return record.levelno == logging.INFO
+
+# Load environment variables
+load_dotenv()
+
+# Import the ServiceLogger
+from utils.logging_utils import ServiceLogger
+
+# Initialize the logger for the MCP service
+logger = ServiceLogger("mcp").get_logger()
 
 # Log uncaught exceptions
 def handle_exception(exc_type, exc_value, exc_traceback):
@@ -26,9 +49,6 @@ def handle_exception(exc_type, exc_value, exc_traceback):
     logger.critical("Uncaught exception:", exc_info=(exc_type, exc_value, exc_traceback))
 
 sys.excepthook = handle_exception
-
-# Load environment variables
-load_dotenv()
 
 # Configuration
 PATTERN_DETECTOR_URL = os.getenv("PATTERN_DETECTOR_URL", "http://localhost:8001/detect")

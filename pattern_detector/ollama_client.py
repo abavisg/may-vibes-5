@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import httpx
+import time # Import time for measuring duration
 from typing import Dict, Any, List, Optional
 
 # Configure logging
@@ -88,7 +89,8 @@ If no recognizable patterns are found, return an empty patterns array.
     
     try:
         # Call Ollama API
-        logger.info(f"Sending request to Ollama API for {symbol}")
+        logger.info(f"Sending request to Ollama API for {symbol} at {timestamp} (Model: {OLLAMA_MODEL}, Timeout: {OLLAMA_TIMEOUT}s)")
+        start_time = time.time()
         async with httpx.AsyncClient(timeout=OLLAMA_TIMEOUT) as client:
             response = await client.post(
                 OLLAMA_API_URL,
@@ -113,12 +115,14 @@ If no recognizable patterns are found, return an empty patterns array.
             )
             
             # Check for successful response
-            response.raise_for_status()
+            response.raise_for_status() # Raises HTTPStatusError for bad responses (4xx or 5xx)
+            end_time = time.time()
+            logger.info(f"Received successful response from Ollama API (Status: {response.status_code}) in {end_time - start_time:.4f} seconds.")
             result = response.json()
             
             # Extract the response text
             response_text = result.get("message", {}).get("content", "")
-            logger.debug(f"Ollama raw response: {response_text}")
+            logger.debug(f"Ollama raw response content: {response_text}")
             
             # Extract JSON from the response (handling possible text before/after the JSON)
             try:
@@ -142,19 +146,20 @@ If no recognizable patterns are found, return an empty patterns array.
                             "lower_shadow": (open_price if is_bullish else close_price) - low_price
                         }
                     
-                    logger.info(f"Successfully extracted {len(patterns)} patterns from Ollama response")
+                    logger.info(f"Successfully extracted {len(patterns)} patterns from Ollama response JSON.")
                     return patterns
                 else:
-                    logger.warning(f"No valid JSON found in Ollama response")
+                    logger.warning(f"No valid JSON found in Ollama response for {symbol} at {timestamp}.")
+                    logger.debug(f"Ollama response text without JSON: {response_text}")
                     return []
             except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse JSON from Ollama response: {e}")
+                logger.error(f"Failed to parse JSON from Ollama response for {symbol} at {timestamp}: {e}. Response text: {response_text}")
                 return []
     except httpx.RequestError as e:
-        logger.error(f"Error calling Ollama API: {e}")
+        logger.error(f"Error calling Ollama API for {symbol} at {timestamp}: {e}")
         return []
     except Exception as e:
-        logger.error(f"Unexpected error in Ollama pattern detection: {e}", exc_info=True)
+        logger.error(f"Unexpected error in Ollama pattern detection for {symbol} at {timestamp}: {e}", exc_info=True)
         return []
         
 # Fallback pattern detection for when Ollama is not available

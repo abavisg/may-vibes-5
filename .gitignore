@@ -114,3 +114,6 @@ venv.bak/
 # Project specific
 config.local.py
 /signal_logs
+
+# Log files directory
+/logs/

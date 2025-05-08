@@ -1,24 +1,71 @@
 import logging
 import os
+import sys # Import sys for StreamHandler
 from typing import Dict, Any, List
 
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 from dotenv import load_dotenv
+import time # Import time for measuring duration
+
+# Ensure logs directory exists
+LOG_DIR = "logs"
+os.makedirs(LOG_DIR, exist_ok=True)
+
+# Map environment variable string to logging level
+LOGGING_LEVEL = os.getenv("LOGGING_LEVEL", "DEBUG").upper()
+LOG_LEVEL_MAP = {
+    "DEBUG": logging.DEBUG,
+    "INFO": logging.INFO,
+    "WARNING": logging.WARNING,
+    "ERROR": logging.ERROR,
+    "CRITICAL": logging.CRITICAL
+}
+
+# Determine the logging level, default to DEBUG if not recognized
+logging_level = LOG_LEVEL_MAP.get(LOGGING_LEVEL, logging.DEBUG)
+
+# Custom filter to allow only INFO level messages for console
+class InfoFilter(logging.Filter):
+    def filter(self, record):
+        return record.levelno == logging.INFO
+
+# Get logger instance
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG) # Set logger level to DEBUG to capture all messages before filtering
+
+# Create console handler and set level to DEBUG, add InfoFilter to show only INFO in console
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setLevel(logging.DEBUG) # Process all messages from logger
+console_handler.addFilter(InfoFilter()) # Only pass INFO level to console
+
+# Create file handler and set level to the determined logging level
+file_handler = logging.FileHandler(os.path.join(LOG_DIR, "pattern_detector_debug.log"))
+file_handler.setLevel(logging_level) # Log according to environment variable
+
+# Create a formatter and add it to the handlers
+formatter = logging.Formatter("%(asctime)s [%(levelname)s] [pattern_detector] %(message)s")
+console_handler.setFormatter(formatter)
+file_handler.setFormatter(formatter)
+
+# Add the handlers to the logger
+logger.addHandler(console_handler)
+logger.addHandler(file_handler)
+
+# Log the effective logging level for the file handler
+logger.info(f"Pattern detector service file logging level set to {logging.getLevelName(file_handler.level)}")
 
 # Import our Ollama client
 from pattern_detector.ollama_client import detect_patterns_with_ollama, detect_pattern_fallback
 
-# Configure minimal logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] [pattern_detector] %(message)s",
-    handlers=[logging.StreamHandler()]
-)
-logger = logging.getLogger(__name__)
-
 # Load environment variables
 load_dotenv()
+
+# Import the ServiceLogger
+from utils.logging_utils import ServiceLogger
+
+# Initialize the logger for the pattern detector service
+logger = ServiceLogger("pattern_detector").get_logger()
 
 # Feature flags
 USE_OLLAMA = os.getenv("USE_OLLAMA", "true").lower() == "true"
@@ -60,14 +107,28 @@ async def detect_candle_pattern(candle: Candle) -> PatternResponse:
         candle_dict = candle.dict()
         patterns = []
         if USE_OLLAMA:
+            logger.info(f"Using Ollama for pattern detection for {candle.symbol}")
             try:
                 patterns = await detect_patterns_with_ollama(candle_dict)
-            except Exception:
+                if not patterns:
+                    logger.info(f"Ollama detected no patterns for {candle.symbol}")
+            except Exception as e:
+                logger.error(f"Ollama pattern detection failed for {candle.symbol}: {e}. Falling back.")
                 fallback_pattern = detect_pattern_fallback(candle_dict)
                 patterns = [fallback_pattern] if fallback_pattern["strength"] > 0 else []
+                if patterns:
+                    logger.info(f"Fallback detected a pattern for {candle.symbol}")
+                else:
+                    logger.info(f"Fallback detected no patterns for {candle.symbol}")
         else:
+            logger.info(f"Ollama is disabled. Using fallback pattern detection for {candle.symbol}")
             fallback_pattern = detect_pattern_fallback(candle_dict)
             patterns = [fallback_pattern] if fallback_pattern["strength"] > 0 else []
+            if patterns:
+                logger.info(f"Fallback detected a pattern for {candle.symbol}")
+            else:
+                logger.info(f"Fallback detected no patterns for {candle.symbol}")
+
         result = PatternResponse(patterns=patterns, candle=candle)
         logger.info(f"Output: {result.dict()}")
         logger.info(f"[END] /detect for {candle.symbol} at {candle.timestamp}")
