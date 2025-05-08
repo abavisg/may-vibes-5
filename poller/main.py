@@ -8,6 +8,7 @@ from typing import Dict, Optional
 import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from poller.candle_generator import generate_dummy_candles
 
@@ -30,6 +31,15 @@ app = FastAPI(
     title="Poller Service",
     description="Service for polling market data and sending to MCP",
     version="0.1.0"
+)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins for development
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
 )
 
 poller_running = False

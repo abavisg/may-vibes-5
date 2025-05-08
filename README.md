@@ -1,4 +1,4 @@
-# Signal Relay System
+# Trading Signal Relay System
 
 A multi-service architecture for processing financial market signals.
 
@@ -159,6 +159,48 @@ AI-detected pattern:
 5. Signal Generator creates a signal
 6. Signal is passed to Signal Dispatcher
 7. Result: BUY/SELL signal for XAUUSD is logged or dispatched
+8. Flutter web app can fetch signals via the Signal Dispatcher's `/signals` endpoint
+
+## 📡 API Endpoints
+
+The system provides several API endpoints for interaction:
+
+### Signal Dispatcher Endpoints
+
+- `/dispatch` (POST): Receives and dispatches trading signals
+- `/signals` (GET): Returns the 100 most recent signals across all log files (used by Flutter frontend)
+- `/signals/{date}` (GET): Returns signals for a specific date (format: YYYY-MM-DD)
+- `/health` (GET): Returns service health status
+
+### MCP Endpoints
+
+- `/mcp/candle` (POST): Receives candle data and orchestrates the signal pipeline
+- `/health` (GET): Returns service health status
+
+### Pattern Detector Endpoints
+
+- `/detect` (POST): Detects patterns in candle data
+- `/health` (GET): Returns service health status
+
+### Signal Generator Endpoints
+
+- `/generate` (POST): Generates trading signals from detected patterns
+- `/health` (GET): Returns service health status
+
+### Poller Endpoints
+
+- `/health` (GET): Returns service health status
+- `/last-candle` (GET): Returns the last fetched candle
+- `/trigger-poll` (POST): Manually triggers a polling cycle
+
+### Cross-Origin Resource Sharing (CORS)
+
+All services have CORS middleware enabled with the following configuration:
+- Allow all origins (`*`) for development
+- Allow all methods and headers
+- Allow credentials
+
+This ensures that the Flutter web app can communicate with the backend services without CORS issues.
 
 ## 📁 Project Structure
 
@@ -190,6 +232,14 @@ AI-detected pattern:
 ├── signal_dispatcher/        # Signal dispatching service
 │   ├── __init__.py
 │   └── main.py
+├── flutter_app/              # Flutter web frontend
+│   ├── lib/
+│   │   ├── main.dart         # Main UI components
+│   │   ├── models/
+│   │   │   └── signal.dart   # Signal data model
+│   │   └── services/
+│   │       └── signal_service.dart  # API service
+│   └── run_web.sh            # Script to run the web app
 ├── signal_logs/              # Directory for signal log files
 ├── Dockerfile                # Docker image definition
 ├── docker-compose.yml        # Docker Compose configuration
@@ -369,7 +419,27 @@ To incorporate these improvements, follow the documented code style and structur
 
 ## Flutter Web App
 
-A Flutter web frontend is included in the `flutter_app/` directory. Follow the steps below to run and debug it:
+A Flutter web frontend is included in the `flutter_app/` directory. This application provides a clean, modern interface for viewing trading signals dispatched by the system.
+
+### Features
+
+- Modern dark theme UI optimized for viewing trading signals
+- Real-time signal data fetching from the backend's `/signals` endpoint
+- Data filtering (All signals, BUY only, SELL only)
+- Visual indicators for BUY (green) and SELL (red) signals
+- Displays signal details including:
+  - Symbol
+  - Signal type (BUY/SELL)
+  - Entry price, stop loss, and take profit levels
+  - Pattern type and confidence/strength
+  - Risk/reward ratio
+  - Timestamp
+  - Signal ID
+  - Data source (LIVE or DUMMY)
+- Responsive design works on desktop and mobile browsers
+- Auto-refresh capability
+
+### Running the Flutter Web App
 
 1. Change to the `flutter_app` directory:
    ```bash
@@ -384,5 +454,12 @@ A Flutter web frontend is included in the `flutter_app/` directory. Follow the s
    ./run_web.sh
    ```
 4. To debug in VS Code, open the workspace and select the **Flutter Web (Chrome)** configuration in `.vscode/launch.json`, then press F5.
+
+### Architecture
+
+The Flutter app follows a simple, clean architecture:
+- `main.dart`: Entry point with UI components and state management
+- `models/signal.dart`: Data model for trading signals
+- `services/signal_service.dart`: Service layer for fetching signals from the backend
 
 The Flutter app will launch in Chrome with hot reload enabled, allowing rapid UI iteration. 

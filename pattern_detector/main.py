@@ -4,6 +4,7 @@ import sys # Import sys for StreamHandler
 from typing import Dict, Any, List
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 import time # Import time for measuring duration
@@ -29,6 +30,15 @@ app = FastAPI(
     title="Pattern Detector",
     description="Service to detect patterns in candle data",
     version="0.1.0"
+)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins for development
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
 )
 
 # Define request model
