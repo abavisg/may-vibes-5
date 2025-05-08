@@ -1,6 +1,11 @@
 # macOS
 .DS_Store
 
+# --- IDE & Editor configs ---
+.idea/
+.vscode/
+*.iml
+
 # Python
 ../__pycache__/*
 *.py[cod]
@@ -23,3 +28,4 @@ flutter_app/build/
 flutter_app/pubspec.lock
 flutter_app/pubspec.yaml
 flutter_app/pubspec.yaml
+flutter_app/.metadata
