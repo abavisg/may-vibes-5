@@ -108,6 +108,9 @@ venv.bak/
 .idea/
 *.iml
 
+# MacOS specific
+.DS_Store
+
 # Project specific
 config.local.py
 /signal_logs
