@@ -10,28 +10,6 @@ from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
-# Ensure logs directory exists
-LOG_DIR = "logs"
-os.makedirs(LOG_DIR, exist_ok=True)
-
-# Map environment variable string to logging level
-LOGGING_LEVEL = os.getenv("LOGGING_LEVEL", "DEBUG").upper()
-LOG_LEVEL_MAP = {
-    "DEBUG": logging.DEBUG,
-    "INFO": logging.INFO,
-    "WARNING": logging.WARNING,
-    "ERROR": logging.ERROR,
-    "CRITICAL": logging.CRITICAL
-}
-
-# Determine the logging level, default to DEBUG if not recognized
-logging_level = LOG_LEVEL_MAP.get(LOGGING_LEVEL, logging.DEBUG)
-
-# Custom filter to allow only INFO level messages for console
-class InfoFilter(logging.Filter):
-    def filter(self, record):
-        return record.levelno == logging.INFO
-
 # Load environment variables
 load_dotenv()
 

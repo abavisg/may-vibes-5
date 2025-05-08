@@ -11,53 +11,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 
-# Ensure logs directory exists
-LOG_DIR = "logs"
-os.makedirs(LOG_DIR, exist_ok=True)
-
-# Map environment variable string to logging level
-LOGGING_LEVEL = os.getenv("LOGGING_LEVEL", "DEBUG").upper()
-LOG_LEVEL_MAP = {
-    "DEBUG": logging.DEBUG,
-    "INFO": logging.INFO,
-    "WARNING": logging.WARNING,
-    "ERROR": logging.ERROR,
-    "CRITICAL": logging.CRITICAL
-}
-
-# Determine the logging level, default to DEBUG if not recognized
-logging_level = LOG_LEVEL_MAP.get(LOGGING_LEVEL, logging.DEBUG)
-
-# Custom filter to allow only INFO level messages for console
-class InfoFilter(logging.Filter):
-    def filter(self, record):
-        return record.levelno == logging.INFO
-
-# Get logger instance
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG) # Set logger level to DEBUG to capture all messages before filtering
-
-# Create console handler and set level to DEBUG, add InfoFilter to show only INFO in console
-console_handler = logging.StreamHandler(sys.stdout)
-console_handler.setLevel(logging.DEBUG) # Process all messages from logger
-console_handler.addFilter(InfoFilter()) # Only pass INFO level to console
-
-# Create file handler and set level to the determined logging level
-file_handler = logging.FileHandler(os.path.join(LOG_DIR, "signal_dispatcher_debug.log"))
-file_handler.setLevel(logging_level) # Log according to environment variable
-
-# Create a formatter and add it to the handlers
-formatter = logging.Formatter("%(asctime)s [%(levelname)s] [signal_dispatcher] %(message)s")
-console_handler.setFormatter(formatter)
-file_handler.setFormatter(formatter)
-
-# Add the handlers to the logger
-logger.addHandler(console_handler)
-logger.addHandler(file_handler)
-
-# Log the effective logging level for the file handler
-logger.info(f"Signal dispatcher service file logging level set to {logging.getLevelName(file_handler.level)}")
-
 # Load environment variables
 load_dotenv()
 
