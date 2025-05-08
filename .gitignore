@@ -1,41 +1,25 @@
-# OS Specific
-.DS_Store              # macOS Finder metadata files
-Thumbs.db              # Windows thumbnail cache
-ehthumbs.db            # Windows thumbnail cache
-Desktop.ini            # Windows desktop configuration
-*.bak                  # Backup files
-*.tmp                  # Temporary files
+# macOS
+.DS_Store
 
-# Tech Stack Specific
-# Flutter/Dart specific
-.dart_tool/            # Dart tool files
-.flutter-plugins       # Flutter plugin dependencies
-.flutter-plugins-dependencies # Flutter plugin dependencies
-.pub-cache/            # Pub package cache
-.pub/                  # Pub package files
-build/                 # Build outputs
-ios/Flutter/.last_build_id # iOS build ID
+# Python
+../__pycache__/*
+*.py[cod]
+*.pyo
 
-# Python specific (if applicable)
-__pycache__/           # Python cache files
-*.py[cod]             # Compiled Python files
-*.egg-info/           # Python egg metadata
-*.env                  # Environment variable files
-.venv/                 # Virtual environment directory
-env/                   # Environment directory
-venv/                  # Virtual environment directory
+# Flutter/Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+pubspec.lock
+build/
 
-# Coverage and Documentation Specific
-coverage/             # Coverage reports
-*.cover                # Coverage files
-*.lcov                 # LCOV coverage reports
-docs/_build/           # Documentation build artifacts
-
-# IDE and Editor Specific
-.idea/                 # IntelliJ IDEA project files
-.vscode/               # Visual Studio Code settings
-*.iml                  # IntelliJ IDEA module files
-
-# Project Specific
-/logs/                 # Log files directory
-signal_logs/          # Custom signal logs
+# Your folders
+/logs/
+/signal_logs/
+flutter_app/.dart_tool/
+flutter_app/.packages
+flutter_app/build/
+flutter_app/pubspec.lock
+flutter_app/pubspec.yaml
+flutter_app/pubspec.yaml
