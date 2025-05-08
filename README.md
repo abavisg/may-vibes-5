@@ -366,3 +366,23 @@ Several code improvements have been identified and applied to reduce duplication
    - Add mocks for external services to enable reliable testing
 
 To incorporate these improvements, follow the documented code style and structure conventions shown in the Poller Service Code Improvements section. 
+
+## Flutter Web App
+
+A Flutter web frontend is included in the `flutter_app/` directory. Follow the steps below to run and debug it:
+
+1. Change to the `flutter_app` directory:
+   ```bash
+   cd flutter_app
+   ```
+2. Make the script executable (first time only):
+   ```bash
+   chmod +x run_web.sh
+   ```
+3. Run the web app with hot reload:
+   ```bash
+   ./run_web.sh
+   ```
+4. To debug in VS Code, open the workspace and select the **Flutter Web (Chrome)** configuration in `.vscode/launch.json`, then press F5.
+
+The Flutter app will launch in Chrome with hot reload enabled, allowing rapid UI iteration. 
