@@ -39,6 +39,16 @@ class Signal {
 
   DateTime get timestampDateTime {
     try {
+      // Try to parse as integer (Unix timestamp)
+      if (timestamp.contains(RegExp(r'^[0-9]+$'))) {
+        return DateTime.fromMillisecondsSinceEpoch(
+          // Convert from seconds to milliseconds if needed
+          timestamp.length <= 10 
+              ? int.parse(timestamp) * 1000 
+              : int.parse(timestamp)
+        );
+      }
+      // Try to parse as standard ISO format
       return DateTime.parse(timestamp);
     } catch (e) {
       return DateTime.now();
@@ -47,8 +57,8 @@ class Signal {
 
   String get formattedTimestamp {
     try {
-      final dt = DateTime.parse(timestamp);
-      return '${dt.day}/${dt.month}/${dt.year} ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}:${dt.second.toString().padLeft(2, '0')}';
+      final dt = timestampDateTime;
+      return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}:${dt.second.toString().padLeft(2, '0')}';
     } catch (e) {
       return timestamp;
     }
