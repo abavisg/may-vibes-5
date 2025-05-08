@@ -2,10 +2,11 @@ import json
 import logging
 import os
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 
@@ -29,6 +30,15 @@ app = FastAPI(
     title="Signal Dispatcher",
     description="Service to dispatch trading signals to various outputs",
     version="0.1.0"
+)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins for development
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
 )
 
 class TradingSignal(BaseModel):
@@ -130,4 +140,71 @@ async def startup_event():
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    logger.info("Signal dispatcher service stopped.") 
+    logger.info("Signal dispatcher service stopped.")
+
+@app.get("/signals")
+async def get_latest_signals():
+    """
+    Fetch the 100 most recent signals across all log files
+    """
+    try:
+        all_signals = []
+        files = os.listdir(SIGNAL_LOG_DIR)
+        signal_files = [f for f in files if f.startswith("signals_") and f.endswith(".json")]
+        
+        # Sort files by date (newest first)
+        signal_files.sort(reverse=True)
+        
+        # Read signals from files until we have 100 or run out of files
+        for file_name in signal_files:
+            file_path = os.path.join(SIGNAL_LOG_DIR, file_name)
+            try:
+                with open(file_path, 'r') as f:
+                    file_signals = json.load(f)
+                    all_signals.extend(file_signals)
+                    if len(all_signals) >= 100:
+                        break
+            except Exception as e:
+                logger.error(f"Error reading signal file {file_path}: {str(e)}")
+        
+        # Limit to 100 signals, sorted by timestamp (newest first)
+        all_signals = sorted(
+            all_signals[:100], 
+            key=lambda s: s.get('timestamp', ''), 
+            reverse=True
+        )
+        
+        return all_signals
+    except Exception as e:
+        logger.error(f"Error fetching signals: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching signals: {str(e)}")
+
+@app.get("/signals/{date}")
+async def get_signals_by_date(date: str):
+    """
+    Fetch signals for a specific date (format: YYYY-MM-DD)
+    """
+    try:
+        # Validate date format
+        datetime.strptime(date, "%Y-%m-%d")
+        
+        log_file = os.path.join(SIGNAL_LOG_DIR, f"signals_{date}.json")
+        if not os.path.exists(log_file):
+            return []
+            
+        with open(log_file, 'r') as f:
+            signals = json.load(f)
+            
+        # Sort by timestamp (newest first)
+        signals = sorted(
+            signals, 
+            key=lambda s: s.get('timestamp', ''), 
+            reverse=True
+        )
+            
+        return signals
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+    except Exception as e:
+        logger.error(f"Error fetching signals for date {date}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching signals: {str(e)}") 
