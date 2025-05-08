@@ -22,7 +22,7 @@ load_dotenv()
 
 # Configuration
 MCP_URL = os.getenv("MCP_URL", "http://localhost:8000/mcp/candle")
-POLLING_INTERVAL = int(os.getenv("POLLING_INTERVAL", "5"))  # seconds
+POLLING_INTERVAL = int(os.getenv("POLLING_INTERVAL", "10"))  # seconds
 USE_SIGNAL_STUBS = os.getenv("USE_SIGNAL_STUBS", "").lower() in ("true", "1", "yes")
 DATA_PROVIDER = os.getenv("DATA_PROVIDER", "twelvedata").lower()
 
@@ -53,8 +53,8 @@ except ImportError as e:
 
 async def fetch_candle(symbol: str = "XAU/USD") -> Optional[Dict]:
     logging.info(f"Fetching candle from {DATA_PROVIDER} provider")
-    provider = twelvedata #PROVIDERS.get(DATA_PROVIDER)
-    parser = twelvedata_parser #PARSERS.get(DATA_PROVIDER)
+    provider = PROVIDERS.get(DATA_PROVIDER)
+    parser = PARSERS.get(DATA_PROVIDER)
     if provider and parser:
         try:
             raw = await provider.fetch_candle(symbol)
