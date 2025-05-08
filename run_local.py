@@ -12,6 +12,29 @@ import time
 import requests
 from pathlib import Path
 
+# Define the logs directory
+LOG_DIR = "logs"
+
+# Ensure the logs directory exists
+os.makedirs(LOG_DIR, exist_ok=True)
+
+# --- Clear existing log files ---
+print("Clearing existing log files in the logs directory...")
+try:
+    for filename in os.listdir(LOG_DIR):
+        if filename.endswith(".log"):
+            file_path = os.path.join(LOG_DIR, filename)
+            try:
+                with open(file_path, 'w') as f:
+                    f.truncate(0) # Empty the file
+                print(f"Cleared log file: {filename}")
+            except Exception as e:
+                print(f"Error clearing log file {filename}: {e}")
+except Exception as e:
+    print(f"Error accessing logs directory: {e}")
+print("Log file clearing complete.")
+# -----------------------------------
+
 # Define services and their ports
 SERVICES = [
     {"name": "pattern_detector", "port": 8001, "module": "pattern_detector.main:app"},

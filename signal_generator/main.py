@@ -1,7 +1,7 @@
 import logging
 import os
 import sys # Import sys for StreamHandler
-from typing import Dict, Any
+from typing import Dict, Any, Optional # Import Optional
 
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
@@ -39,6 +39,13 @@ async def generate_signal(pattern_detection: PatternDetection):
     try:
         patterns = pattern_detection.patterns
         candle = pattern_detection.candle
+
+        # Check if type_of_data is present and not None
+        type_of_data = candle.get("type_of_data")
+        if type_of_data is None:
+            logger.error("type_of_data is missing in the incoming candle data.")
+            raise HTTPException(status_code=400, detail="type_of_data field is required in candle data")
+
         if not patterns:
             result = {"status": "no_signal"}
             logger.info(f"Output: {result}")
@@ -55,12 +62,16 @@ async def generate_signal(pattern_detection: PatternDetection):
             "entry_price": candle.get("close"),
             "stop_loss": candle.get("close", 0) * 1.01,
             "take_profit": candle.get("close", 0) * 0.98,
-            "type_of_data": candle.get("type_of_data", "DUMMY"),
+            # Use the retrieved type_of_data (guaranteed not None by the check above)
+            "type_of_data": type_of_data,
             "pattern": pattern
         }
         logger.info(f"Output: {signal}")
         logger.info(f"[END] /generate for {candle.get('symbol', 'unknown')} at {candle.get('timestamp', 'unknown')}")
         return signal
+    except HTTPException as e:
+        # Re-raise HTTPException to be handled by FastAPI
+        raise e
     except Exception as e:
         logger.error(f"Error generating signal: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error generating signal: {str(e)}")

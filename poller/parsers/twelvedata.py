@@ -38,7 +38,8 @@ def parse_candle_response(response_data: Dict[str, Any]) -> Optional[Dict[str, A
             "low": float(latest.get("low", 0)),
             "close": float(latest.get("close", 0)),
             "volume": float(latest.get("volume", 0)),
-            "provider": "twelvedata"
+            "provider": "twelvedata",
+            "type_of_data": "LIVE"
         }
         
         return candle

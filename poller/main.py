@@ -23,7 +23,7 @@ logger = ServiceLogger("poller").get_logger()
 # Configuration
 MCP_URL = os.getenv("MCP_URL", "http://localhost:8000/mcp/candle")
 POLLING_INTERVAL = int(os.getenv("POLLING_INTERVAL", "10"))  # seconds
-USE_SIGNAL_STUBS = os.getenv("USE_SIGNAL_STUBS", "").lower() in ("true", "1", "yes")
+USE_SIGNAL_STUBS = os.getenv("USE_SIGNAL_STUBS", "false").lower() in ("true", "1", "yes")
 DATA_PROVIDER = os.getenv("DATA_PROVIDER", "twelvedata").lower()
 
 app = FastAPI(
@@ -94,9 +94,14 @@ async def fetch_and_process_candle():
         else:
             logger.info("[PROCESS] Attempting to fetch live/test candle data")
             candle = await fetch_candle()
-            if candle is None:
-                logger.error("[PROCESS] Failed to fetch candle data. Skipping MCP dispatch.")
-                return None, None
+
+        if candle is None:
+            logger.error("[PROCESS] Failed to fetch candle data. Skipping MCP dispatch.")
+            return None, None
+        
+        # Ensure timestamp is a string for MCP (Pydantic validation)
+        if isinstance(candle.get("timestamp"), (int, float)):
+            candle["timestamp"] = str(int(candle["timestamp"]))
         
         logger.info(f"[PROCESS] Sending candle to MCP: {candle.get('symbol')} at {candle.get('timestamp')}")
         start_time = time.time()

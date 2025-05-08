@@ -10,6 +10,9 @@ LOG_LEVEL_MAP = {
     "CRITICAL": logging.CRITICAL
 }
 
+# Create a reverse map from logging level integer to string name
+LOG_LEVEL_NAME_MAP = {v: k for k, v in LOG_LEVEL_MAP.items()}
+
 # Determine the logging level from environment variable, default to DEBUG if not recognized
 LOGGING_LEVEL_STR = os.getenv("LOGGING_LEVEL", "DEBUG").upper()
 LOGGING_LEVEL = LOG_LEVEL_MAP.get(LOGGING_LEVEL_STR, logging.DEBUG)
@@ -26,4 +29,7 @@ def get_log_directory() -> str:
     return LOG_DIR
 
 def get_level_map() -> dict:
-    return LOG_LEVEL_MAP 
+    return LOG_LEVEL_MAP
+
+def get_level_name_map() -> dict:
+    return LOG_LEVEL_NAME_MAP 

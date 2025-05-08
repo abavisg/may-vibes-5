@@ -40,6 +40,7 @@ class Candle(BaseModel):
     low: float
     close: float
     volume: int
+    type_of_data: str
 
 class PatternResponse(BaseModel):
     patterns: List[Dict[str, Any]]

@@ -2,7 +2,7 @@ import logging
 import sys
 
 # Import logging configuration
-from .logging_config import get_logging_level, get_level_map
+from .logging_config import get_logging_level, get_level_map, get_level_name_map
 
 # Import the console and file handler setup utilities
 from .console_logger import setup_console_handler
@@ -28,7 +28,7 @@ class ServiceLogger:
 
         # Log the effective logging level for the handlers
         # Need the level name, can get from logging_config
-        level_name = get_level_map().get(self.logging_level, 'UNKNOWN')
+        level_name = get_level_name_map().get(self.logging_level, 'UNKNOWN')
         self._logger.info(f"Service '{service_name}' console and file logging level set to {level_name}")
 
     def get_logger(self) -> logging.Logger:
